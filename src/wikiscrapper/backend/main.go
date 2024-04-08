@@ -1,16 +1,17 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "net/http"
+	"fmt"
+	"log"
+	"net/http"
 
-    "github.com/PuerkitoBio/goquery"
+	"github.com/PuerkitoBio/goquery"
 )
 
 func main() {
+    
     // URL of the web page to scrape
-    url := "https://example.com"
+    url := "https://www.wikipedia.org/"
 
     // Send HTTP GET request
     response, err := http.Get(url)

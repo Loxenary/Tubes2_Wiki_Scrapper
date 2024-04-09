@@ -20,7 +20,8 @@ const Toast = () => {
 };
 
 export const showToast = (message: string, type: string) => {
-  switch (type) {
+  const lowerType = type.toLowerCase();
+  switch (lowerType) {
     case "success":
       toast.success(message);
       break;

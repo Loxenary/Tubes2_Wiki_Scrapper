@@ -11,7 +11,9 @@ const EntryWiki = () => {
     FROM: "",
     TO: "",
   });
-  const { setData }: SearchWikiInterface = useWikiSearchContext();
+
+  const { setDataInput, Algorithm }: SearchWikiInterface =
+    useWikiSearchContext();
   const SearchContext = useContext(OutputContext);
 
   if (!SearchContext) {
@@ -29,9 +31,33 @@ const EntryWiki = () => {
     }));
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     //TODO: implement api request to handle backend
+    setDataInput(formValue.FROM, formValue.TO);
+    const dataUsed = {
+      ...formValue,
+      "algorithm" : Algorithm
+    }
+    showToast("data: " + JSON.stringify(dataUsed), "info")
+    try {
+      const res = await fetch("/api/postData", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(dataUsed),
+      });
+
+      if (!res.ok) {
+        throw new Error("failed to fetch");
+      }
+
+      const data = await res.json();
+      console.log(JSON.stringify(data));
+    } catch (error) {
+      showToast("Error :" + error, "error");
+    }
     if (formValue.FROM === formValue.TO) {
       showToast("The Data of From and To are the Same", "warning");
       return;
@@ -39,7 +65,6 @@ const EntryWiki = () => {
       showToast("Please fill all the input fields", "error");
       return;
     }
-    setData(formValue.FROM, formValue.TO);
     setOutputState(true);
   };
   return (

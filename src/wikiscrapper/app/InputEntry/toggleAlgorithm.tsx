@@ -2,15 +2,15 @@
 import ToggleSlider from "@/components/toggleSlider";
 import DefaultImage from "@/public/switch-body-light.png";
 import ToggledImage from "@/public/switch-body-dark.png";
-import { useState } from "react";
-const ToggleAlgorithm = () => {
-  const [CurrentAlgorithm, SetCurrentAlgorithm] = useState("IDS");
+import {SearchWikiInterface,useWikiSearchContext } from "@/Context/SearchContext";
 
+const ToggleAlgorithm = () => {
+  const { setAlgorithm }: SearchWikiInterface = useWikiSearchContext();
   const OnSliderChange = (state: boolean) => {
     if (state) {
-      SetCurrentAlgorithm("BFS");
+      setAlgorithm("IDS");
     } else {
-      SetCurrentAlgorithm("IDS");
+      setAlgorithm("BFS");
     }
   };
   return (

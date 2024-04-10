@@ -5,16 +5,23 @@ import {
   useWikiSearchContext,
 } from "@/Context/SearchContext";
 import { useContext, useState, ChangeEvent, FormEvent } from "react";
-import { OutputContext } from "./page";
+import { BoolOutputSetup } from "./page";
+import { IOutputContext } from "../Output/outputData";
+import { useOutputContext } from "@/Context/OutputContext";
+import { LoadingBar } from "@/components/loading";
 const EntryWiki = () => {
   const [formValue, setFormValue] = useState({
     FROM: "",
     TO: "",
   });
 
+  const [isLoading, setisLoading] = useState(false);
+
+  const { setOutputData }: IOutputContext = useOutputContext();
+
   const { setDataInput, Algorithm }: SearchWikiInterface =
     useWikiSearchContext();
-  const SearchContext = useContext(OutputContext);
+  const SearchContext = useContext(BoolOutputSetup);
 
   if (!SearchContext) {
     showToast("Context not found", "error");
@@ -31,74 +38,103 @@ const EntryWiki = () => {
     }));
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    //TODO: implement api request to handle backend
+  function handleOutputData(data: any) {
+    const { checkcount, listPath, numpassed, time } = data;
+    setOutputData(checkcount, numpassed, time, listPath);
+  }
+
+  function handleInputData() {
     setDataInput(formValue.FROM, formValue.TO);
     const dataUsed = {
       ...formValue,
-      "algorithm" : Algorithm
+      algorithm: Algorithm,
+    };
+    setFormValue(dataUsed);
+  }
+
+  function handleInputEdgeCases() {
+    if (formValue.FROM === formValue.TO) {
+      throw new Error("The Data of From and To are the Same");
+    } else if (formValue.FROM.length === 0 || formValue.TO.length === 0) {
+      throw new Error("Please fill all the input fields");
     }
-    showToast("data: " + JSON.stringify(dataUsed), "info")
+  }
+
+  const HandleAPI = async () => {
+    const res = await fetch("/api/postData", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formValue),
+    });
+
+    if (!res.ok) {
+      throw new Error("failed to fetch");
+    }
+    const data = await res.json();
+    return data;
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    //TODO: implement api request to handle backend
+    handleInputData();
     try {
-      const res = await fetch("/api/postData", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(dataUsed),
-      });
-
-      if (!res.ok) {
-        throw new Error("failed to fetch");
-      }
-
-      const data = await res.json();
-      console.log(JSON.stringify(data));
+      handleInputEdgeCases();
+    } catch (error) {
+      showToast(error + "", "error");
+      return;
+    }
+    try {
+      setisLoading(true);
+      setOutputState(false);
+      const data = await HandleAPI();
+      setisLoading(false);
+      handleOutputData(data);
     } catch (error) {
       showToast("Error :" + error, "error");
-    }
-    if (formValue.FROM === formValue.TO) {
-      showToast("The Data of From and To are the Same", "warning");
-      return;
-    } else if (formValue.FROM.length === 0 || formValue.TO.length === 0) {
-      showToast("Please fill all the input fields", "error");
       return;
     }
     setOutputState(true);
   };
   return (
-    <form action="submit" onSubmit={handleSubmit}>
-      <div className="w-full justify-center flex gap-x-20">
-        <div className="flex flex-col justify-center">
-          <label htmlFor="FROM">FROM</label>
-          <input
-            type="text"
-            id="FROM"
-            className="bg-gray-100"
-            placeholder="wikipedia title"
-            value={formValue.FROM}
-            onChange={handleChange}
-          />
+    <>
+      <form action="submit" onSubmit={handleSubmit}>
+        <div className="w-full justify-center flex gap-x-20">
+          <div className="flex flex-col justify-center">
+            <label htmlFor="FROM">FROM</label>
+            <input
+              type="text"
+              id="FROM"
+              className="bg-gray-100"
+              placeholder="wikipedia title"
+              value={formValue.FROM}
+              onChange={handleChange}
+            />
+          </div>
+          <div className="flex flex-col">
+            <label htmlFor="TO">TO</label>
+            <input
+              type="text"
+              id="TO"
+              className="bg-gray-100"
+              placeholder="wikipedia title"
+              value={formValue.TO}
+              onChange={handleChange}
+            />
+          </div>
         </div>
-        <div className="flex flex-col">
-          <label htmlFor="TO">TO</label>
-          <input
-            type="text"
-            id="TO"
-            className="bg-gray-100"
-            placeholder="wikipedia title"
-            value={formValue.TO}
-            onChange={handleChange}
-          />
+        <div className="flex justify-center items-center w-full my-12">
+          <button className="text-white bg-blue-400 w-20 h-10 text-xl">
+            FIND
+          </button>
         </div>
+      </form>
+      <div>
+        <LoadingBar isLoading={isLoading} />
       </div>
-      <div className="flex justify-center items-center w-full my-12">
-        <button className="text-white bg-blue-400 w-20 h-10 text-xl">
-          FIND
-        </button>
-      </div>
-    </form>
+    </>
   );
 };
 

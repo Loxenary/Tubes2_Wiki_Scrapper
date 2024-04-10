@@ -1,4 +1,5 @@
-import { useState } from "react";
+"use client";
+import { useOutputContext } from "@/Context/OutputContext";
 import PathInterface from "./PathData";
 
 const SinglePath: React.FC<PathInterface> = ({ index, item }) => (
@@ -11,21 +12,31 @@ const SinglePath: React.FC<PathInterface> = ({ index, item }) => (
 );
 
 const RouteOutput = () => {
-  const dummyData: PathInterface[] = [
-    { index: "1", item: "Example 1" },
-    { index: "2", item: "Example 2" },
-    { index: "3", item: "Example 3" },
-  ];
+  const { time, listPath } = useOutputContext();
+
+  const timeExecution = () => {
+    return (
+      <div className="flex gap-5 ">
+        <h1>Time Execution: </h1>
+        <div className=" w-max h-7">
+          {time ? time.toString() + " ms" : "..ms"}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="text-lg my-10">
-        <div className="flex gap-5 ">
-        <h1>Time Execution: </h1>
-        <div className=" w-max h-7">..ms</div>
-      </div>
-      {dummyData.map((item, index) => (
-        <SinglePath key={index} index={item.index} item={item.item} />
-      ))}
+      {timeExecution()}
+      {listPath
+        ? listPath.map((item, index) => (
+            <SinglePath
+              key={index}
+              index={item.index}
+              item={item.item}
+            ></SinglePath>
+          ))
+        : null}
     </div>
   );
 };

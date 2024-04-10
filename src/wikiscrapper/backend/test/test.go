@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 //Ini Struct buat nyimpen data input dari web
@@ -43,6 +44,13 @@ var dummyResult = Response{
 	ListPath: dummyPathList,
 }
 
+//Test Async function (Not implemented)
+func TimeStop5Seconds(){
+	fmt.Println("Waiting for 5 seconds...")
+    <-time.After(5 * time.Second)
+    fmt.Println("5 seconds have passed. Stopping...")
+}
+
 //Fungsi utama buat POST api dari web
 func postDataHandler(w http.ResponseWriter, r *http.Request){
 	if r.Method != "POST"{
@@ -66,7 +74,7 @@ func postDataHandler(w http.ResponseWriter, r *http.Request){
 	print("From: "+dataFrom +"\n")
 	dataTo := fmt.Sprintf(data.TO)
 	print("To: "+dataTo + "\n")
-	
+	TimeStop5Seconds();
 	//variable yang  nyimpen data hasil pencarian
 	response := dummyResult
 

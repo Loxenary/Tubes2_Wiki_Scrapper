@@ -6,7 +6,6 @@ import OutputPage from "../Output/page";
 import { createContext, useState } from "react";
 import { WikiSearchContextProvider } from "@/Context/SearchContext";
 import { OutputContextProvider } from "@/Context/OutputContext";
-
 export interface ISetupOutputPage {
   setOutputState: React.Dispatch<React.SetStateAction<boolean>>;
 }

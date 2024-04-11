@@ -18,20 +18,16 @@ const EntryWiki = () => {
     TO: "",
   });
 
-  // Save Data for loading logic
+  // Save Data for loading animation logic
   const [isLoading, setisLoading] = useState(false);
 
-  // Save Data for Links to related wiki pages
-  const [linksValue, setLinksValue] = useState({
-    FROM: "",
-    TO: "",
-  });
-  // Context that saves the output data
+  // Context that saves the output data, used in output page later
   const { setOutputData }: IOutputContext = useOutputContext();
 
   // Save the data of the algorithm that is used
   const { Algorithm }: SearchWikiInterface = useWikiSearchContext();
 
+  // Used to control the state of the autocomplete when user click on the input field
   const [isFromAutocompleteOpen, setIsFromAutocompleteOpen] = useState(false);
   const [isToAutocompleteOpen, setIsToAutocompleteOpen] = useState(false);
 
@@ -43,7 +39,7 @@ const EntryWiki = () => {
   }
   const { setOutputState } = SearchContext;
 
-  //
+  // used to save the state of current input field
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { id, value } = event.target;
     //TODO: handle autocomplete from wikipedia api
@@ -53,19 +49,23 @@ const EntryWiki = () => {
     }));
   };
 
+  // used to save the data of the response from backend into an output context
   function handleOutputData(data: any) {
     const { checkcount, listPath, numpassed, time } = data;
     setOutputData(checkcount, numpassed, time, listPath);
   }
 
-  function handleInputData() {
+  // insert data of algorithm into data links
+  function handleInputData(linksdata: any) {
     const dataUsed = {
-      ...formValue,
+      FROM: linksdata.FROM,
+      TO: linksdata.TO,
       algorithm: Algorithm,
     };
-    setFormValue(dataUsed);
+    return dataUsed;
   }
 
+  // handle any input field edge case e.g: empty input or both field has the same input
   function handleInputEdgeCases() {
     if (formValue.FROM === formValue.TO) {
       throw new Error("The Data of From and To are the Same");
@@ -74,67 +74,37 @@ const EntryWiki = () => {
     }
   }
 
-  const HandleAPI = async () => {
+  // handle api post to backend return a json object containing output data
+  const HandleAPI = async (data: any) => {
+    console.log("Links: " + JSON.stringify(data));
+    console.log("Title : " + JSON.stringify(formValue));
     const res = await fetch("/api/postData", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(linksValue),
+      body: JSON.stringify(data),
     });
 
     if (!res.ok) {
       throw new Error("failed to fetch");
     }
-    const data = await res.json();
-    return data;
+    const output = await res.json();
+    return output;
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    //TODO: implement api request to handle backend
-    try {
-      handleInputEdgeCases();
-      await handleLinks();
-      handleInputData();
-      console.log(formValue);
-      setisLoading(true);
-      setOutputState(false);
-
-      const data = await HandleAPI();
-      setisLoading(false);
-
-      handleOutputData(data);
-      setOutputState(true);
-    } catch (error) {
-      showToast(error + "", "error");
-      return;
-    }
-  };
-
-  const handleFromAutoComplete = (data: string) => {
-    setFormValue({
-      FROM: data,
-      TO: formValue.TO,
-    });
-  };
-
-  const handleToAutoComplete = (data: string) => {
-    setFormValue({
-      FROM: formValue.FROM,
-      TO: data,
-    });
-  };
-
+  // formatting data used later in creating wikipedia links
   function removeSpace(data: string) {
     return data.replace(/\s+/g, "_");
   }
 
-  function converLink(data: string) {
+  // convert a title into a wikipedia link
+  function convertLink(data: string) {
     return `https://en.wikipedia.org/wiki/${removeSpace(data)}`;
   }
 
-  const handleLinks = async () => {
+  // handle any invalid links, if valid, convert the data to a link and save it into links state value
+  const handleTitleToLinks = async () => {
     const { FROM, TO } = formValue;
     const formattedFrom = removeSpace(FROM);
     const formattedFromLower = FROM.toLowerCase();
@@ -158,13 +128,49 @@ const EntryWiki = () => {
       if (!responseToLower.includes(formattedToLower)) {
         throw new Error(`${TO} title can not found on Wikipedia`);
       }
-      setLinksValue({
-        FROM: converLink(formattedFrom),
-        TO: converLink(formattedTo),
-      });
+      const data = {
+        FROM: convertLink(formattedFrom),
+        TO: convertLink(formattedTo),
+      };
+      console.log("Links Should be : " + JSON.stringify(data));
+      const out = handleInputData(data);
+      return out;
     } catch (error) {
       throw error;
     }
+  };
+
+  // handle button submission
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      handleInputEdgeCases();
+      const links = await handleTitleToLinks();
+      setisLoading(true);
+      setOutputState(false);
+      const data = await HandleAPI(links);
+      handleOutputData(data);
+    } catch (error) {
+      showToast(error + "", "error");
+      return;
+    } finally {
+      setOutputState(true);
+      setisLoading(false);
+    }
+  };
+
+  const handleFromAutoComplete = (data: string) => {
+    setFormValue({
+      FROM: data,
+      TO: formValue.TO,
+    });
+  };
+
+  const handleToAutoComplete = (data: string) => {
+    setFormValue({
+      FROM: formValue.FROM,
+      TO: data,
+    });
   };
 
   const handleFromFocus = () => {

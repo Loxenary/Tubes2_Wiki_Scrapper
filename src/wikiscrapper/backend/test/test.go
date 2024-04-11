@@ -74,7 +74,7 @@ func postDataHandler(w http.ResponseWriter, r *http.Request){
 	print("From: "+dataFrom +"\n")
 	dataTo := fmt.Sprintf(data.TO)
 	print("To: "+dataTo + "\n")
-	TimeStop5Seconds();
+	
 	//variable yang  nyimpen data hasil pencarian
 	response := dummyResult
 

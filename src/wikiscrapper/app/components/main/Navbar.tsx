@@ -11,7 +11,7 @@ const Navbar = () => {
             </a>
             <div className='w-[300px] h-full flex flex-row items-center'>
                 <div className='flex items-center justify-between w-full h-auto border border-[#7042f861] bg-[#0300145e] px-[20px] py-[10px] rounded-full text-gray-200'>
-                    <a href="/" className='cursor-pointer hover:text-purple-800'>Home</a>
+                    <a href="/" className='cursor-pointer  hover:text-purple-800'>Home</a>
                     <a href="#information" className='cursor-pointer hover:text-purple-800'>Information</a>
                     <a href="#aboutus" className='cursor-pointer hover:text-purple-800'>About Us</a>
                 </div>

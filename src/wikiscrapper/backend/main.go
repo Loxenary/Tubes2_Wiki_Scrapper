@@ -21,20 +21,19 @@ func main() {
     clearFile("links.txt")
     clearFile("output.txt")
 
-    visited := make(map[string]bool)
     // URL of the web page to scrape
-    url := "/wiki/Platter_(dishware)"
-    target := "/wiki/Jewellery"
+    url := "/wiki/Guallatiri"
+    target := "/wiki/Volcano"
     start := time.Now()
     //path := BFS(url,target)
-    path := DLS(url,target,4,visited)
+    path := IDS(url,target,6)
     writeFile("output.txt",path)
     run_time := time.Since(start)
     
     fmt.Println("runtime :" , run_time)
 }
 
-func getListofLinks(url string,visited map[string]bool) []string{
+func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, bool) {
     url = "https://en.wikipedia.org" + url
     response, err := http.Get(url)
     if err != nil {
@@ -48,39 +47,29 @@ func getListofLinks(url string,visited map[string]bool) []string{
         log.Fatal("Error parsing HTML:", err)
     }
 
-    // Extract title
-    //title := doc.Find("title").Text()
-    //fmt.Println("Title:", url)
-
     // Extract links
     var links []string
-    var linkCount int
+    targetFound := false // Flag to indicate if the target URL has been found
+
     doc.Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
         // Extract links within the main content area
         content.Find("a").Each(func(i int, s *goquery.Selection) {
             // Get the link's href attribute
             link, exists := s.Attr("href")
-            
-            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link,links) && !visited[link] && !strings.ContainsAny(link,"#") {
+
+            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
                 // Append the link to the slice
                 links = append(links, link)
-                linkCount++
-                if linkCount >= 50 {
-                    return // Exit the loop if 50 links are found
+                if link == targeturl {
+                    // If the link matches the target URL, set the flag
+                    targetFound = true
                 }
             }
         })
-        if linkCount >= 50 {
-            return // Exit the loop if 50 links are found
-        }
     })
 
-    // fmt.Println("Links:")
-    // for _, link := range links {
-    //     fmt.Println(link)
-    // }
     writeFile("links.txt", links)
-    return links
+    return links, targetFound
 }
 
 func ignoreLink(link string) bool{
@@ -160,7 +149,7 @@ func BFS(startURL, targetURL string) []string {
         // Get the last visited URL in the path
         currentURL := path[len(path)-1]
 
-        // Check if the target article is reached
+        // Check if the target URL is reached
         if currentURL == targetURL {
             return path
         }
@@ -173,8 +162,11 @@ func BFS(startURL, targetURL string) []string {
 
         // Get links from the current URL
         //println("flag")
-        links := getListofLinks(currentURL,visited)
-
+        links,found := getListofLinks(targetURL,currentURL,visited)
+		if found {
+			return append([]string{targetURL}, path...)
+			//fmt.Println("we")
+		}
         // Add new paths to the queue
         for _, link := range links {
             newPath := append([]string{}, path...)
@@ -182,42 +174,51 @@ func BFS(startURL, targetURL string) []string {
             queue = append(queue, newPath)
         }
     }
-    return nil // Target article not found
+    return nil // Target URL not found
 }
   
 
-// func IDS(startArticle, targetArticle string, depthLimit int) []string {
-//     visited := make(map[string]bool)
-//     for depth := 0; depth <= depthLimit; depth++ {
-//         path := DLS(startArticle, targetArticle, depth)
-//         if path != nil {
-//             return path
-//         }
-//     }
-//     return nil
-// }
+func IDS(startURL, targetURL string, depthLimit int) []string {
+    for depth := 0; depth <= depthLimit; depth++ {
+		visited := make(map[string]bool)
+		fmt.Println("depth" , depth)
+        path := DLS(startURL, targetURL, depth,visited)
+        if path != nil {
+            return path
+        }
+    }
+	fmt.Println("not found")
+    return nil
+}
 
 // Function to perform depth-limited search
-func DLS(currentArticle, targetArticle string, depthLimit int,visited (map[string]bool)) []string {
-    
+func DLS(currentURL, targetURL string, depthLimit int,visited (map[string]bool)) []string {
+    path := []string{currentURL}
     if depthLimit == 0 {
         return nil
     }
 
-    if currentArticle == targetArticle {
-        return []string{currentArticle}
+    if currentURL == targetURL {
+        return []string{currentURL}
     }
 
-    if visited[currentArticle] {
+    if visited[currentURL] {
         return nil
     }
-    visited[currentArticle] = true
+    visited[currentURL] = true
 
-    links := getListofLinks(currentArticle,visited)
+    links,found := getListofLinks(targetURL,currentURL,visited)
+	//var i = 0
+	if found {
+		return append([]string{targetURL},path...)
+		//fmt.Println("we")
+	}
     for _, link := range links {
-        path := DLS(link, targetArticle, depthLimit-1,visited)
+		//fmt.Println("dls loop",i)
+		//i++
+        path := DLS(link, targetURL, depthLimit-1,visited)
         if path != nil {
-            return append([]string{currentArticle}, path...)
+            return append([]string{currentURL}, path...)
         }
     }
 

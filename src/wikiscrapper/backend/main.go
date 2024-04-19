@@ -231,10 +231,53 @@ func isin(link string,array []string) bool{
     return false
 }
 
-func BFS(startURL, targetURL string) []string {
+func BFSTest(startURL, targetURL string) []string {
     visited := make(map[string]bool)
     queue := [][]string{{startURL}}
     var wg sync.WaitGroup
+    wg.Add(1)
+    var resultPath []string
+    for len(queue) > 0 {
+        path := queue[0]
+        queue = queue[1:]
+        currentURL := path[len(path)-1]
+
+        // Check if the target URL is reached
+        if currentURL == targetURL {
+            wg.Wait() // Wait for all goroutines to finish
+            return path
+        }
+        if visited[currentURL] {
+            continue
+        }
+        visited[currentURL] = true
+
+        // Get links from the current URL concurrently
+        go func(currentURL string) {
+            defer wg.Done()
+            links, found := getListofLinks(targetURL, currentURL, visited)
+            if found {
+                resultPath = path
+            }
+            var appendedData []string
+            for _, link := range links {
+                if !visited[link] {
+                    newPath := append([]string{}, path...)
+                    newPath = append(newPath, link)
+                    queue = append(queue, newPath)
+                    appendedData = append(appendedData, link)
+                }
+            }
+            writeFile("links.txt", appendedData)
+        }(currentURL)
+    }
+    wg.Wait() // Wait for all goroutines to finish
+    return resultPath // Target article not found
+}
+
+func BFS(startURL, targetURL string) []string {
+    visited := make(map[string]bool)
+    queue := [][]string{{startURL}}
     for len(queue) > 0 {
         path := queue[0]
         queue = queue[1:]
@@ -267,7 +310,6 @@ func BFS(startURL, targetURL string) []string {
                 queue = append(queue, newPath)
             }
         }
-        wg.Add(1)
     }
     return nil // Target article not found
 }

@@ -18,7 +18,7 @@ export const BoolOutputSetup = createContext<ISetupOutputPage | undefined>(
 );
 
 const InputEntry = () => {
-  const [outputState, setOutputState] = useState(false);
+  
   return (
     // This is context responsibility to hold data such as algorithm
     <WikiSearchContextProvider>
@@ -36,19 +36,9 @@ const InputEntry = () => {
 
           <div className="py-10">
             {/* Hold the toggle slider */}
-            <ToggleAlgorithm></ToggleAlgorithm>
-
-            {/* Hold the Output Data from backend */}
-            <OutputContextProvider>
-
-              {/* usage : turn on or off visibility of the output page*/}
-              <BoolOutputSetup.Provider value={{ setOutputState }}>
-
-                {/* Hold Component for User input */}
-                <EntryWiki></EntryWiki>
-              </BoolOutputSetup.Provider>
-
-            </OutputContextProvider>
+            <ToggleAlgorithm></ToggleAlgorithm>        
+            {/* Hold Component for User input */}
+            <EntryWiki></EntryWiki>
           </div>
         </div>
 

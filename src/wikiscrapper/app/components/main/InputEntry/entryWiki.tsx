@@ -87,25 +87,6 @@ const EntryWiki = () => {
 
   }
 
-  const startPollingWithTimeout = async() => {
-    const timeoutDuration =  300 * 1000;
-    const timeoutId = setTimeout(() => {
-      showToast("The data handled took too long to complete", "error")
-      setOutputState(false);
-      setisLoading(false);
-    }, timeoutDuration);
-
-    try{
-      await handleBackendPolling();
-    }catch(e){
-      setOutputState(false);
-      setisLoading(false);
-      throw e;
-    }finally{
-      clearTimeout(timeoutId)
-    }
-  }
-
   // used to save the data of the response from backend into an output context
   function handleOutputData(data: any) {
     const { checkcount, listPath, numpassed, time } = data;
@@ -165,25 +146,18 @@ const EntryWiki = () => {
   const handleTitleToLinks = async () => {
     const { FROM, TO } = formValue;
     const formattedFrom = removeSpace(FROM);
-    const formattedFromLower = FROM.toLowerCase();
     const formattedTo = removeSpace(TO);
-    const formattedToLower = TO.toLowerCase();
 
     try {
-      const responseFrom = await WikipediaExistChecker(formattedFrom);
+      const responseFrom = await WikipediaExistChecker(FROM);
 
-      const responseFromLower = responseFrom.map((title) =>
-        title.toLowerCase()
-      );
 
-      if (!responseFromLower.includes(formattedFromLower)) {
+      if (!responseFrom.includes(FROM)) {
         throw new Error(`${FROM} title can not found on Wikipedia`);
       }
 
-      const responseTo = await WikipediaExistChecker(formattedTo);
-
-      const responseToLower = responseTo.map((title) => title.toLowerCase());
-      if (!responseToLower.includes(formattedToLower)) {
+      const responseTo = await WikipediaExistChecker(TO);
+      if (!responseTo.includes(TO)) {
         throw new Error(`${TO} title can not found on Wikipedia`);
       }
       const data = {

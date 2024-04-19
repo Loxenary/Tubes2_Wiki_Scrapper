@@ -1,13 +1,14 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "net/http"
-    "strings"
-    "github.com/PuerkitoBio/goquery"
-    "os"
-    "time"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"strings"
+	"sync"
+	"time"
+	"github.com/PuerkitoBio/goquery"
 )
 
 // type Root struct{
@@ -23,10 +24,11 @@ func main() {
 
     // URL of the web page to scrape
     url := "/wiki/Guallatiri"
-    target := "/wiki/Volcano"
+    target := "/wiki/Ancient_Greece"
     start := time.Now()
     //path := BFS(url,target)
-    path := IDS(url,target,6)
+	path := BFS_con(url,target)
+    //path := IDS(url,target,6)
     writeFile("output.txt",path)
     run_time := time.Since(start)
     
@@ -164,7 +166,7 @@ func BFS(startURL, targetURL string) []string {
         //println("flag")
         links,found := getListofLinks(targetURL,currentURL,visited)
 		if found {
-			return append([]string{targetURL}, path...)
+			return append(path, targetURL)
 			//fmt.Println("we")
 		}
         // Add new paths to the queue
@@ -176,7 +178,62 @@ func BFS(startURL, targetURL string) []string {
     }
     return nil // Target URL not found
 }
-  
+func BFS_con(startURL, targetURL string) []string {
+	visited := make(map[string]bool)
+	queue := [][]string{{startURL}}
+	//result := make(chan []string)
+
+	for len(queue) > 0 {
+		select {
+		case <-time.After(time.Second * 10):
+			fmt.Println("Timeout reached")
+			return nil
+		default:
+			path := queue[0]
+			queue = queue[1:]
+
+			// Get the last visited URL in the path
+			currentURL := path[len(path)-1]
+
+			// Check if the target URL is reached
+			if currentURL == targetURL {
+				return path
+			}
+
+			// Skip if the URL is already visited
+			if visited[currentURL] {
+				continue
+			}
+			visited[currentURL] = true
+
+			// Use a wait group to synchronize goroutines
+			var wg sync.WaitGroup
+
+			// Get links from the current URL
+			links, found := getListofLinks(targetURL, currentURL, visited)
+
+			if found {
+				return append(path,targetURL)
+			}
+
+			// Add new paths to the queue
+			for _, link := range links {
+				wg.Add(1)
+				go func(link string) {
+					defer wg.Done()
+					newPath := append([]string{}, path...)
+					newPath = append(newPath, link)
+					queue = append(queue, newPath)
+				}(link)
+			}
+
+			// Wait for all goroutines to finish before processing the next level
+			wg.Wait()
+		}
+	}
+
+	return nil // Target URL not found
+}
 
 func IDS(startURL, targetURL string, depthLimit int) []string {
     for depth := 0; depth <= depthLimit; depth++ {
@@ -210,7 +267,7 @@ func DLS(currentURL, targetURL string, depthLimit int,visited (map[string]bool))
     links,found := getListofLinks(targetURL,currentURL,visited)
 	//var i = 0
 	if found {
-		return append([]string{targetURL},path...)
+		return append(path,targetURL)
 		//fmt.Println("we")
 	}
     for _, link := range links {

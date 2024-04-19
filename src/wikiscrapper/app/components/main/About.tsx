@@ -13,7 +13,7 @@ return (
   >
     <div className='max-w-[1240px] mx-10 grid md:grid-cols-2 gap-8 gap-y-24'>
       <div data-aos="fade-right">
-        <h1 className="text-7xl font-semibold text-transparent bg-clip-text bg-white py-20 text-center md:text-left md:text-8xl">
+        <h1 className="text-7xl font-semibold text-transparent bg-clip-text bg-white py-20 text-center md:text-left md:text-9xl">
           ABOUT US.
         </h1>
       </div>

@@ -19,7 +19,7 @@ const Hero = () => {
         </div>
 
         <div  data-aos="fade-up">
-          <a className='py-2 button-primary text-center text-white cursor-pointer rounded-lg'>
+          <a href="#race" className='py-2 button-primary text-center text-white cursor-pointer rounded-lg'>
             <div className='transform transition duration-300 hover:scale-125 w-[200px] bg-[#221465] rounded-md font-medium my-6 mx-auto py-4 text-white' style={{
               boxShadow: 'inset 0 0 10px rgba(201, 191, 255, 0.5)'
             }}>

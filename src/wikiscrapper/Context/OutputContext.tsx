@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from "react";
-import { IOutputContext } from "@/app/Output/outputData";
-import PathInterface from "@/app/Output/PathData";
+import { IOutputContext } from "@/app/components/main/Output/outputData";
+import PathInterface from "@/app/components/main/Output/PathData";
 
 ///<summary>
 /// This Context is used to hold the information for the output data from the response of the server

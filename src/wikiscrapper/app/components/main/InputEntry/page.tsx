@@ -1,5 +1,5 @@
 "use client";
-import Title from "./title";
+
 import ToggleAlgorithm from "./toggleAlgorithm";
 import EntryWiki from "./entryWiki";
 import OutputPage from "../Output/page";
@@ -7,38 +7,41 @@ import { createContext, useState } from "react";
 import { WikiSearchContextProvider } from "@/Context/SearchContext";
 import { OutputContextProvider } from "@/Context/OutputContext";
 
+// Interface used in BoolOutputSetup
 export interface ISetupOutputPage {
   setOutputState: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+// Context that have responsibility on Visibility of the output page
 export const BoolOutputSetup = createContext<ISetupOutputPage | undefined>(
   undefined
 );
 
 const InputEntry = () => {
-  const [outputState, setOutputState] = useState(false);
+  
   return (
+    // This is context responsibility to hold data such as algorithm
     <WikiSearchContextProvider>
-      <div className="w-full justify-center items-center flex flex-col gap-y-5">
+      <div
+      className="flex flex-col items-center justify-center pt-40"
+      id="race"
+      >
         {/* Hold Title */}
-        <Title></Title>
+        <div className="max-w-[1240px] mx-10 grid md:grid-cols-2 gap-10 gap-y-5">
+          <div data-aos="fade-right">
+            <h1 className="text-7xl font-semibold text-transparent bg-clip-text bg-white md:py-20 text-center md:text-left md:text-9xl">
+              LET'S RACE
+            </h1>
+          </div>
 
-        {/* Hold the toggle slider */}
-        <ToggleAlgorithm></ToggleAlgorithm>
-
-        {/* Hold the Output Data from backend */}
-        <OutputContextProvider>
-
-          {/* Hold the data for turn on the backend */}
-          <BoolOutputSetup.Provider value={{ setOutputState }}>
-
+          <div className="py-10">
+            {/* Hold the toggle slider */}
+            <ToggleAlgorithm></ToggleAlgorithm>        
             {/* Hold Component for User input */}
             <EntryWiki></EntryWiki>
-          </BoolOutputSetup.Provider>
+          </div>
+        </div>
 
-          {/* Hold the Output Components */}
-          {outputState ? <OutputPage></OutputPage> : null}
-        </OutputContextProvider>
       </div>
     </WikiSearchContextProvider>
   );

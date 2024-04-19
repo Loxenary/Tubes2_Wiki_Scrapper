@@ -1,5 +1,5 @@
 "use client";
-import ToggleSlider from "@/components/toggleSlider";
+import ToggleSlider from "@/app/components/main/toggleSlider";
 import DefaultImage from "@/public/switch-body-light.png";
 import ToggledImage from "@/public/switch-body-dark.png";
 import {SearchWikiInterface,useWikiSearchContext } from "@/Context/SearchContext";
@@ -14,7 +14,7 @@ const ToggleAlgorithm = () => {
     }
   };
   return (
-    <div className="w-full flex justify-center items-center gap-x-10 ">
+    <div className="w-full flex justify-center items-center my-10 gap-x-10" data-aos="fade-left">
       {/* Width and Height is on pixel */}
       <h1>BFS</h1>
       <ToggleSlider

@@ -1,7 +1,4 @@
 "use client";
-
-import Image from "next/image";
-import Head from 'next/head';
 import Hero from "./components/main/Hero";
 import About from "./components/main/About";
 import { useEffect } from "react";
@@ -20,7 +17,7 @@ export default function Home() {
 
   return (
     <main className='h-full w-full'>
-      <div className='flex flex-col gap-20'>
+      <div className='flex flex-col gap-20 z-20'>
         <Hero />
         <InputEntry></InputEntry>
         

@@ -49,6 +49,57 @@ const EntryWiki = () => {
     }));
   };
 
+  const handleGetApi = async() =>{
+    const url = "/api/getData";
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      }
+    })
+    if(!res.ok){
+      throw new Error("Error Fetching");
+    }
+    const output = await res.json();
+    return output;
+  }
+
+  const handleBackendPolling = async () => {
+    try{
+      const data = await handleGetApi();
+      showToast(JSON.stringify(data),"info");
+      if(data.checkcount){
+        handleOutputData(data);
+        setOutputState(true);
+        setisLoading(false);
+        return;
+      }
+      setTimeout(handleBackendPolling, 5000);
+    }catch(e){
+      throw e;
+    }
+
+  }
+
+  const startPollingWithTimeout = async() => {
+    const timeoutDuration =  300 * 1000;
+    const timeoutId = setTimeout(() => {
+      showToast("The data handled took too long to complete", "error")
+      setOutputState(false);
+      setisLoading(false);
+    }, timeoutDuration);
+
+    try{
+      await handleBackendPolling();
+    }catch(e){
+      setOutputState(false);
+      setisLoading(false);
+      throw e;
+    }finally{
+      clearTimeout(timeoutId)
+    }
+  }
+
   // used to save the data of the response from backend into an output context
   function handleOutputData(data: any) {
     const { checkcount, listPath, numpassed, time } = data;
@@ -75,9 +126,7 @@ const EntryWiki = () => {
   }
 
   // handle api post to backend return a json object containing output data
-  const HandleAPI = async (data: any) => {
-    console.log("Links: " + JSON.stringify(data));
-    console.log("Title : " + JSON.stringify(formValue));
+  const HandlePostAPI = async (data: any) => {
     const res = await fetch("/api/postData", {
       method: "POST",
       headers: {
@@ -89,8 +138,7 @@ const EntryWiki = () => {
     if (!res.ok) {
       throw new Error("failed to fetch");
     }
-    const output = await res.json();
-    return output;
+    showToast("Data is Successfully updated","success");
   };
 
   // formatting data used later in creating wikipedia links
@@ -101,6 +149,10 @@ const EntryWiki = () => {
   // convert a title into a wikipedia link
   function convertLink(data: string) {
     return `https://en.wikipedia.org/wiki/${removeSpace(data)}`;
+  }
+
+  function passedDataLinkConverter(data: string){
+    return `/wiki/${removeSpace(data)}`;
   }
 
   // handle any invalid links, if valid, convert the data to a link and save it into links state value
@@ -129,10 +181,9 @@ const EntryWiki = () => {
         throw new Error(`${TO} title can not found on Wikipedia`);
       }
       const data = {
-        FROM: convertLink(formattedFrom),
-        TO: convertLink(formattedTo),
+        FROM: passedDataLinkConverter(formattedFrom),
+        TO: passedDataLinkConverter(formattedTo),
       };
-      console.log("Links Should be : " + JSON.stringify(data));
       const out = handleInputData(data);
       return out;
     } catch (error) {
@@ -148,14 +199,13 @@ const EntryWiki = () => {
       const links = await handleTitleToLinks();
       setisLoading(true);
       setOutputState(false);
-      const data = await HandleAPI(links);
-      handleOutputData(data);
+      await HandlePostAPI(links);
+      await startPollingWithTimeout();
     } catch (error) {
       showToast(error + "", "error");
-      return;
-    } finally {
-      setOutputState(true);
       setisLoading(false);
+      setOutputState(false);
+      return;
     }
   };
 

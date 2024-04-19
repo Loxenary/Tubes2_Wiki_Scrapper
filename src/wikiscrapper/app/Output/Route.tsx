@@ -2,12 +2,17 @@
 import { useOutputContext } from "@/Context/OutputContext";
 import PathInterface from "./PathData";
 
-const SinglePath: React.FC<PathInterface> = ({ index, item }) => (
+
+interface ISinglePath {
+  itemData : PathInterface;
+  index : number
+}
+const SinglePath: React.FC<ISinglePath> = ({itemData, index}) => (
   <div className="flex flex-row gap-5 items-center text-xl my-5">
     <div className="w-10 h-10 bg-gray-300 items-center flex justify-center rounded-full">
       {index}
     </div>
-    <h1 className="">{item}</h1>
+    <h1 className="">{itemData.item}</h1>
   </div>
 );
 
@@ -32,8 +37,8 @@ const RouteOutput = () => {
         ? listPath.map((item, index) => (
             <SinglePath
               key={index}
-              index={item.index}
-              item={item.item}
+              index={index+ 1}
+              itemData={item}
             ></SinglePath>
           ))
         : null}

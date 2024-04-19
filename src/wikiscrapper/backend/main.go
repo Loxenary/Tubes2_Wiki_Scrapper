@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -33,10 +32,9 @@ type Response struct {
     ListPath []Path `json:"listPath"`
 }
 
-var UrlData Data
-var OutputData Response
+var UrlData = make(chan Data, 1)
+var OutputData = make(chan Response, 1)
 func postDataHandler(w http.ResponseWriter, r *http.Request){
-    UrlData = Data{}
 	if r.Method != "POST"{
 		http.Error(w,  "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
@@ -49,7 +47,7 @@ func postDataHandler(w http.ResponseWriter, r *http.Request){
 		http.Error(w,err.Error(),http.StatusBadRequest)
 		return
 	}
-    UrlData = data
+    UrlData <- data
     fmt.Println("Data From: " + data.FROM)
     fmt.Println("Data To: " + data.TO)
     fmt.Println("Data algorithm: " + data.Algorithm)
@@ -63,66 +61,62 @@ func getDataHandler(w http.ResponseWriter, r *http.Request){
         http.Error(w,  "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
     }
-
-    if(len(OutputData.ListPath)>0){
-        w.WriteHeader(http.StatusOK)
+    select {
+    case response := <-OutputData:
         w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(OutputData)
-    }else{
+        json.NewEncoder(w).Encode(response)
+    default:
         w.WriteHeader(http.StatusNoContent)
-        w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode([]byte{})
     }
 }
 
 func PathConverter(str []string) [] Path{
     var paths []Path
-    for _, s := range str{
-        path := Path{Item: s}
-        paths = append(paths, path)
+    for i := len(str) - 1; i >= 0; i-- {
+        paths = append(paths, Path{str[i]})
     }
     return paths
 }
 
 func processData(){
-    OutputData = Response{}
-    
-    data := UrlData
-    url := data.FROM
-    target := data.TO
+    for{
 
-    // Process data...
-    clearFile("links.txt")
-    clearFile("output.txt")
-    start := time.Now()
-    var path []string
-    if data.Algorithm == "BFS" {
-        path = BFS(url, target)
-    } else {
-        visited := make(map[string]bool)
-        path = DLS(url, target, 4, visited)
-    }
-    runtime := time.Since(start)
-
-    // Construct response
-    response := Response{
-        Checkcount: "25",
-        NumPassed:  fmt.Sprint(len(path)),
-        Time:       fmt.Sprint(runtime),
-        ListPath:   PathConverter(path),
-    }
+        data :=<- UrlData
+        url := data.FROM
+        target := data.TO
     
-    fmt.Println()
-    fmt.Println("Data Checkoutn: " + response.Checkcount)
-    fmt.Println("Data Numpassed: " + response.NumPassed)
-    fmt.Println("Data Time: " + response.Time)
-    fmt.Println("Data ListPath: ")
-    for i := 0; i < len(response.ListPath); i++ {
-        fmt.Println(response.ListPath[i].Item)
+        // Process data...
+        clearFile("links.txt")
+        clearFile("output.txt")
+        start := time.Now()
+        var path []string
+        if data.Algorithm == "BFS" {
+            path = BFS(url, target)
+        } else {
+            visited := make(map[string]bool)
+            path = DLS(url, target, 4, visited)
+        }
+        runtime := time.Since(start)
+    
+        // Construct response
+        response := Response{
+            Checkcount: "25",
+            NumPassed:  fmt.Sprint(len(path)),
+            Time:       fmt.Sprint(runtime),
+            ListPath:   PathConverter(path),
+        }
+        
+        fmt.Println()
+        fmt.Println("Data Checkoutn: " + response.Checkcount)
+        fmt.Println("Data Numpassed: " + response.NumPassed)
+        fmt.Println("Data Time: " + response.Time)
+        fmt.Println("Data ListPath: ")
+        for i := 0; i < len(response.ListPath); i++ {
+            fmt.Println(response.ListPath[i].Item)
+        }
+        OutputData <- response
     }
-    OutputData = response
 }
-
 func main() {
     
     go processData()
@@ -157,7 +151,6 @@ func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, b
         content.Find("a").Each(func(i int, s *goquery.Selection) {
             // Get the link's href attribute
             link, exists := s.Attr("href")
-
             if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
                 // Append the link to the slice
                 links = append(links, link)
@@ -168,8 +161,6 @@ func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, b
             }
         })
     })
-
-    writeFile("links.txt", links)
     return links, targetFound
 }
 
@@ -262,14 +253,19 @@ func BFS(startURL, targetURL string) []string {
         //println("flag")
         links,found := getListofLinks(targetURL,currentURL,visited)
 		if found {
-			return append([]string{targetURL}, path...)
-			//fmt.Println("we")
+            reversedPath := make([]string, len(path))
+            for i := range path {
+                reversedPath[i] = path[len(path)-1-i]
+            }
+			return append([]string{targetURL}, reversedPath...)
 		}
         // Add new paths to the queue
         for _, link := range links {
-            newPath := append([]string{}, path...)
-            newPath = append(newPath, link)
-            queue = append(queue, newPath)
+            if !visited[link] {
+                newPath := append([]string{}, path...)
+                newPath = append(newPath, link)
+                queue = append(queue, newPath)
+            }
         }
         wg.Add(1)
     }
@@ -289,6 +285,8 @@ func IDS(startURL, targetURL string, depthLimit int) []string {
 	fmt.Println("not found")
     return nil
 }
+
+
 
 // Function to perform depth-limited search
 func DLS(currentURL, targetURL string, depthLimit int,visited (map[string]bool)) []string {

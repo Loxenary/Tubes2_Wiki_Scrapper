@@ -57,24 +57,30 @@ const EntryWiki = () => {
         "Content-Type": "application/json",
       }
     })
+    if(res.status===204){
+      return "null"
+    }
+    else if(res.status === 200){
+      const output = await res.json();
+      return output
+    }
     if(!res.ok){
       throw new Error("Error Fetching");
     }
-    const output = await res.json();
-    return output;
   }
 
   const handleBackendPolling = async () => {
     try{
       const data = await handleGetApi();
-      showToast(JSON.stringify(data),"info");
-      if(data.checkcount){
+      if(data != "null"){
+        showToast(JSON.stringify(data),"info");
         handleOutputData(data);
         setOutputState(true);
         setisLoading(false);
         return;
       }
-      setTimeout(handleBackendPolling, 5000);
+      setTimeout(handleBackendPolling,3000);
+      
     }catch(e){
       throw e;
     }
@@ -200,7 +206,7 @@ const EntryWiki = () => {
       setisLoading(true);
       setOutputState(false);
       await HandlePostAPI(links);
-      await startPollingWithTimeout();
+      await handleBackendPolling();
     } catch (error) {
       showToast(error + "", "error");
       setisLoading(false);

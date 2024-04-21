@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
+
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -80,7 +80,6 @@ func PathConverter(str []string) [] Path{
 
 func processData(){
     for{
-
         data :=<- UrlData
         url := data.FROM
         target := data.TO
@@ -90,8 +89,9 @@ func processData(){
         clearFile("output.txt")
         start := time.Now()
         var path []string
+        counter := int(0)
         if data.Algorithm == "BFS" {
-            path = BFS(url, target)
+            path = BFSTest(url, target, &counter)
         } else {
             visited := make(map[string]bool)
             path = DLS(url, target, 4, visited)
@@ -100,7 +100,7 @@ func processData(){
     
         // Construct response
         response := Response{
-            Checkcount: "25",
+            Checkcount: fmt.Sprint(counter),
             NumPassed:  fmt.Sprint(len(path)),
             Time:       fmt.Sprint(runtime),
             ListPath:   PathConverter(path),
@@ -231,50 +231,88 @@ func isin(link string,array []string) bool{
     return false
 }
 
-func BFSTest(startURL, targetURL string) []string {
-    visited := make(map[string]bool)
-    queue := [][]string{{startURL}}
-    var wg sync.WaitGroup
-    wg.Add(1)
-    var resultPath []string
-    for len(queue) > 0 {
-        path := queue[0]
-        queue = queue[1:]
-        currentURL := path[len(path)-1]
 
-        // Check if the target URL is reached
-        if currentURL == targetURL {
-            wg.Wait() // Wait for all goroutines to finish
+
+func FindCorrectPath(currentUrl string,queue [][]string) []string{
+    for _, path := range queue {
+        if path[len(path)-1] == currentUrl {
+            // If the last element of the path matches currentURL, return the path
             return path
-        }
-        if visited[currentURL] {
-            continue
-        }
-        visited[currentURL] = true
-
-        // Get links from the current URL concurrently
-        go func(currentURL string) {
-            defer wg.Done()
-            links, found := getListofLinks(targetURL, currentURL, visited)
-            if found {
-                resultPath = path
-            }
-            var appendedData []string
-            for _, link := range links {
-                if !visited[link] {
-                    newPath := append([]string{}, path...)
-                    newPath = append(newPath, link)
-                    queue = append(queue, newPath)
-                    appendedData = append(appendedData, link)
-                }
-            }
-            writeFile("links.txt", appendedData)
-        }(currentURL)
+        } 
+        
     }
-    wg.Wait() // Wait for all goroutines to finish
-    return resultPath // Target article not found
+    return nil
 }
 
+func RemovePathFromQueue(queue [][]string, deleted []string) [][]string {
+    // Find deleted index 
+    
+    for i, path := range queue {
+        if(len(path) > 0 && len(deleted) > 0){
+            if path[len(path)-1] == deleted[len(deleted)-1] {
+                newQueue := [][]string{}
+                for j, linkPath := range queue{
+                    if(i != j){
+                        newQueue = append(newQueue, linkPath)
+                    }
+                }
+                return newQueue
+            }
+        }
+    }
+    return nil
+}
+
+func BFSTest(startURL, targetURL string, counter *int) []string {
+    visited := make(map[string]bool)
+    webFind := make(map[string]bool)
+    var urlToFind Prioqueue
+    urlToFind.Init(targetURL)
+    urlToFind.Enqueue(startURL)
+    var pathQueue = [][]string{{startURL}}
+    for(urlToFind.Length()> 0){    
+        currentUrl, priority := urlToFind.Dequeue()
+        fmt.Println("URL TO FIND: ", currentUrl, "Priority : ",priority)
+        path := FindCorrectPath(currentUrl, pathQueue)
+        if(currentUrl == targetURL){
+            return path
+        }
+
+        if(visited[currentUrl]){
+            continue
+        }
+        visited[currentUrl] = true
+
+        webFind[currentUrl] = true
+        links, isFound := getListofLinks(targetURL,currentUrl,webFind)
+        
+        if(isFound){
+            (*counter) += len(links)
+            path := append(path, targetURL)
+            
+            return path
+        }
+        appendedLink := []string{}
+        for _, link := range links {
+            if(!webFind[link]){
+                (*counter)++
+                newPath := append([]string{}, path...)
+                newPath = append(newPath, link)
+                pathQueue = append(pathQueue, newPath)
+                urlToFind.Enqueue(link)
+                appendedLink = append(appendedLink,link)
+                webFind[link] = true
+            }
+        }
+        writeFile("links.txt",appendedLink)
+        pathQueue = RemovePathFromQueue(pathQueue, path)
+    }
+    return nil
+}
+
+func Checker(){
+    fmt.Println("is this called??")
+}
 func BFS(startURL, targetURL string) []string {
     visited := make(map[string]bool)
     queue := [][]string{{startURL}}
@@ -310,6 +348,7 @@ func BFS(startURL, targetURL string) []string {
                 queue = append(queue, newPath)
             }
         }
+        fmt.Println(queue)
     }
     return nil // Target article not found
 }

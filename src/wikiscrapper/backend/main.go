@@ -6,38 +6,115 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 	"github.com/PuerkitoBio/goquery"
 )
 
-// type Root struct{
-//     ID int
-//     Link string
-//     Parent int
-// }
+//Ini Struct buat nyimpen data input dari web
+type Data struct{
+	FROM string `json:"FROM"`
+	TO string `json:"TO"`
+	Algorithm string `json:"Algorithm"`
+}
+
+//Ini struct buat nyimpen data path yang dilalui
+type Path struct{
+	Item string `json:"item"`
+}
+
+//Ini struct buat nyimpen hasil output yang bakal di balikin ke web
+type Response struct {
+    Checkcount string `json:"checkcount"`
+    NumPassed string `json:"numpassed"`
+    Time   string `json:"time"`
+    ListPath []Path `json:"listPath"`
+}
+
+var UrlData = make(chan Data)
+var OutputData = make(chan Response)
+
+func postDataHandler(w http.ResponseWriter, r *http.Request){
+	if r.Method != "POST"{
+		http.Error(w,  "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	//variable yang nyimpen data json awal
+	var data Data
+	//error handling + save data ke variable data
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil{
+		http.Error(w,err.Error(),http.StatusBadRequest)
+		return
+	}
+    UrlData <- data
+
+    response := <- OutputData
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(response)
+}
+
+func getDataHandler(w http.ResponseWriter, r *http.Request){
+    if(r.Method != "GET"){
+        http.Error(w,  "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+    }
+    select {
+	case response := <-OutputData:
+		// Data available, encode and send the response
+		w.Header().Set("Content-Type", "application/json")		
+		json.NewEncoder(w).Encode(response)
+	default:
+		// No data available, send an empty response
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{})
+	}
+}
+
+func PathConverter(str []string) [] Path{
+    var paths []Path
+    for _, s := range str{
+        path := Path{Item: s}
+        paths = append(paths, path)
+    }
+    return paths
+}
+
 
 func main() {
-
-    clearFile("links.txt")
-    clearFile("output.txt")
-
-    // URL of the web page to scrape
-    url := "/wiki/Sergey_Bubka"
-    target := "/wiki/Twin"
-    start := time.Now()
-    //path := BFS(url,target)
-	path := BFS_con(url,target)
-    //path := IDS(url,target,6)
-    writeFile("output.txt",path)
-    run_time := time.Since(start)
-
-    // visited := make(map[string]bool)
-    // start2 := time.Now()
-    // getListofLinks2(target,url,visited)
-    // run_time2 := time.Since(start2)
-    
-    fmt.Println("runtime :" , run_time)
+    http.HandleFunc("/api/postData", postDataHandler)
+    http.HandleFunc("/api/getData", getDataHandler)
+    go func() {
+        if err := http.ListenAndServe(":8080", nil); err != nil {
+            log.Fatal(err)
+        }
+    }()
+    for{
+        select{
+        case data:= <- UrlData:
+                fmt.Printf("TSETETETETE");
+                url := data.FROM;
+                target := data.TO;
+                clearFile("links.txt")
+                clearFile("output.txt")
+                start := time.Now()
+                var path []string
+                if(data.Algorithm == "BFS"){
+                    path = BFS(url,target)
+                }else{
+                    visited:= make(map[string]bool)
+                    path = DLS(url,target,4,visited)
+                }
+                runtime := time.Since(start)
+                response := Response{
+                    Checkcount: "25",
+                    NumPassed: fmt.Sprint(len(path)),
+                    Time:   fmt.Sprint(runtime),
+                    ListPath: PathConverter(path),
+                }
+                writeFile("output.txt",path)
+                OutputData <- response;
+        }
+    }
 }
 
 // func getListofLinks2(targeturl, url string, visited map[string]bool) ([]string, bool) {
@@ -146,6 +223,88 @@ func isin(link string,array []string) bool{
     return false
 }
 
+
+
+func FindCorrectPath(currentUrl string,queue [][]string) []string{
+    for _, path := range queue {
+        if path[len(path)-1] == currentUrl {
+            // If the last element of the path matches currentURL, return the path
+            return path
+        } 
+        
+    }
+    return nil
+}
+
+func RemovePathFromQueue(queue [][]string, deleted []string) [][]string {
+    // Find deleted index 
+    
+    for i, path := range queue {
+        if(len(path) > 0 && len(deleted) > 0){
+            if path[len(path)-1] == deleted[len(deleted)-1] {
+                newQueue := [][]string{}
+                for j, linkPath := range queue{
+                    if(i != j){
+                        newQueue = append(newQueue, linkPath)
+                    }
+                }
+                return newQueue
+            }
+        }
+    }
+    return nil
+}
+
+func BFSTest(startURL, targetURL string, counter *int) []string {
+    visited := make(map[string]bool)
+    webFind := make(map[string]bool)
+    var urlToFind Prioqueue
+    urlToFind.Init(targetURL)
+    urlToFind.Enqueue(startURL)
+    var pathQueue = [][]string{{startURL}}
+    for(urlToFind.Length()> 0){    
+        currentUrl, priority := urlToFind.Dequeue()
+        fmt.Println("URL TO FIND: ", currentUrl, "Priority : ",priority)
+        path := FindCorrectPath(currentUrl, pathQueue)
+        if(currentUrl == targetURL){
+            return path
+        }
+
+        if(visited[currentUrl]){
+            continue
+        }
+        visited[currentUrl] = true
+
+        webFind[currentUrl] = true
+        links, isFound := getListofLinks(targetURL,currentUrl,webFind)
+        
+        if(isFound){
+            (*counter) += len(links)
+            path := append(path, targetURL)
+            
+            return path
+        }
+        appendedLink := []string{}
+        for _, link := range links {
+            if(!webFind[link]){
+                (*counter)++
+                newPath := append([]string{}, path...)
+                newPath = append(newPath, link)
+                pathQueue = append(pathQueue, newPath)
+                urlToFind.Enqueue(link)
+                appendedLink = append(appendedLink,link)
+                webFind[link] = true
+            }
+        }
+        writeFile("links.txt",appendedLink)
+        pathQueue = RemovePathFromQueue(pathQueue, path)
+    }
+    return nil
+}
+
+func Checker(){
+    fmt.Println("is this called??")
+}
 func BFS(startURL, targetURL string) []string {
     visited := make(map[string]bool)
     queue := [][]string{{startURL}}
@@ -171,7 +330,7 @@ func BFS(startURL, targetURL string) []string {
         //println("flag")
         links,found := getListofLinks(targetURL,currentURL,visited)
 		if found {
-			return append(path, targetURL)
+			return append([]string{targetURL}, path...)
 			//fmt.Println("we")
 		}
         // Add new paths to the queue
@@ -180,65 +339,11 @@ func BFS(startURL, targetURL string) []string {
             newPath = append(newPath, link)
             queue = append(queue, newPath)
         }
+        wg.Add(1)
     }
-    return nil // Target URL not found
+    return nil // Target article not found
 }
-func BFS_con(startURL, targetURL string) []string {
-	visited := make(map[string]bool)
-	queue := [][]string{{startURL}}
-	//result := make(chan []string)
-
-	for len(queue) > 0 {
-		select {
-		case <-time.After(time.Second * 10):
-			fmt.Println("Timeout reached")
-			return nil
-		default:
-			path := queue[0]
-			queue = queue[1:]
-
-			// Get the last visited URL in the path
-			currentURL := path[len(path)-1]
-
-			// Check if the target URL is reached
-			if currentURL == targetURL {
-				return path
-			}
-
-			// Skip if the URL is already visited
-			if visited[currentURL] {
-				continue
-			}
-			visited[currentURL] = true
-
-			// Use a wait group to synchronize goroutines
-			var wg sync.WaitGroup
-
-			// Get links from the current URL
-			links, found := getListofLinks(targetURL, currentURL, visited)
-
-			if found {
-				return append(path,targetURL)
-			}
-
-			// Add new paths to the queue
-			for _, link := range links {
-				wg.Add(1)
-				go func(link string) {
-					defer wg.Done()
-					newPath := append([]string{}, path...)
-					newPath = append(newPath, link)
-					queue = append(queue, newPath)
-				}(link)
-			}
-
-			// Wait for all goroutines to finish before processing the next level
-			wg.Wait()
-		}
-	}
-
-	return nil // Target URL not found
-}
+  
 
 func IDS(startURL, targetURL string, depthLimit int) []string {
     var wg sync.WaitGroup
@@ -301,6 +406,8 @@ func IDS3(startURL, targetURL string, depthLimit int) []string {
 	fmt.Println("not found")
     return nil
 }
+
+
 
 // Function to perform depth-limited search
 func DLS(currentURL, targetURL string, depthLimit int,visited (map[string]bool)) []string {

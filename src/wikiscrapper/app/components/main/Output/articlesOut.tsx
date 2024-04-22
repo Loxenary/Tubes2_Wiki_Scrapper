@@ -8,7 +8,7 @@ const ArticlesOut = () => {
     return (
       <div className="flex gap-5 justify-center items-center">
         <h1>{name}</h1>
-        <div className="bg-gray-500 w-10 h-10 text-white flex justify-center items-center">
+        <div className="bg-gray-200/20 border border-gray-400 shadow-lg shadow-gray-500/50 w-10 h-10 text-white flex rounded-md justify-center items-center">
           {data ? data.toString() : ""}
         </div>
       </div>

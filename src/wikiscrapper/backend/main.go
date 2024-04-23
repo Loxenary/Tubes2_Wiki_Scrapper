@@ -1,13 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
-	"github.com/PuerkitoBio/goquery"
+
 )
 
 //Ini Struct buat nyimpen data input dari web
@@ -30,9 +32,8 @@ type Response struct {
     ListPath []Path `json:"listPath"`
 }
 
-var UrlData = make(chan Data)
-var OutputData = make(chan Response)
-
+var UrlData = make(chan Data, 1)
+var OutputData = make(chan Response, 1)
 func postDataHandler(w http.ResponseWriter, r *http.Request){
 	if r.Method != "POST"{
 		http.Error(w,  "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -47,10 +48,12 @@ func postDataHandler(w http.ResponseWriter, r *http.Request){
 		return
 	}
     UrlData <- data
+    fmt.Println("Data From: " + data.FROM)
+    fmt.Println("Data To: " + data.TO)
+    fmt.Println("Data algorithm: " + data.Algorithm)
 
-    response := <- OutputData
     w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(response)
+    json.NewEncoder(w).Encode([]byte{})
 }
 
 func getDataHandler(w http.ResponseWriter, r *http.Request){
@@ -59,102 +62,73 @@ func getDataHandler(w http.ResponseWriter, r *http.Request){
 		return
     }
     select {
-	case response := <-OutputData:
-		// Data available, encode and send the response
-		w.Header().Set("Content-Type", "application/json")		
-		json.NewEncoder(w).Encode(response)
-	default:
-		// No data available, send an empty response
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{})
-	}
+    case response := <-OutputData:
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(response)
+    default:
+        w.WriteHeader(http.StatusNoContent)
+    }
 }
 
 func PathConverter(str []string) [] Path{
     var paths []Path
-    for _, s := range str{
-        path := Path{Item: s}
-        paths = append(paths, path)
+    for i := len(str) - 1; i >= 0; i-- {
+        paths = append(paths, Path{str[i]})
     }
     return paths
 }
 
-
+func processData(){
+    for{
+        data :=<- UrlData
+        url := data.FROM
+        target := data.TO
+    
+        // Process data...
+        clearFile("links.txt")
+        clearFile("output.txt")
+        start := time.Now()
+        var path []string
+        counter := int(0)
+        if data.Algorithm == "BFS" {
+            //path = BFSTest(url, target, &counter)
+            path = BFScon(url,target)
+        } else {
+            //visited := make(map[string]bool)
+            path = IDS(url, target, 6)
+        }
+        runtime := time.Since(start)
+        writeFile("output.txt",path)
+        // Construct response
+        response := Response{
+            Checkcount: fmt.Sprint(counter),
+            NumPassed:  fmt.Sprint(len(path)),
+            Time:       fmt.Sprint(runtime),
+            ListPath:   PathConverter(path),
+        }
+        
+        fmt.Println()
+        fmt.Println("Data Checkoutn: " + response.Checkcount)
+        fmt.Println("Data Numpassed: " + response.NumPassed)
+        fmt.Println("Data Time: " + response.Time)
+        fmt.Println("Data ListPath: ")
+        for i := 0; i < len(response.ListPath); i++ {
+            fmt.Println(response.ListPath[i].Item)
+        }
+        OutputData <- response
+    }
+}
 func main() {
+    
+    go processData()
     http.HandleFunc("/api/postData", postDataHandler)
     http.HandleFunc("/api/getData", getDataHandler)
-    go func() {
-        if err := http.ListenAndServe(":8080", nil); err != nil {
-            log.Fatal(err)
-        }
-    }()
-    for{
-        select{
-        case data:= <- UrlData:
-                fmt.Printf("TSETETETETE");
-                url := data.FROM;
-                target := data.TO;
-                clearFile("links.txt")
-                clearFile("output.txt")
-                start := time.Now()
-                var path []string
-                if(data.Algorithm == "BFS"){
-                    path = BFS(url,target)
-                }else{
-                    visited:= make(map[string]bool)
-                    path = DLS(url,target,4,visited)
-                }
-                runtime := time.Since(start)
-                response := Response{
-                    Checkcount: "25",
-                    NumPassed: fmt.Sprint(len(path)),
-                    Time:   fmt.Sprint(runtime),
-                    ListPath: PathConverter(path),
-                }
-                writeFile("output.txt",path)
-                OutputData <- response;
-        }
+
+    if err := http.ListenAndServe(":8080", nil); err != nil {
+        log.Fatal(err)
     }
 }
 
-// func getListofLinks2(targeturl, url string, visited map[string]bool) ([]string, bool) {
-//     url = "https://en.wikipedia.org" + url
-//     response, err := http.Get(url)
-//     if err != nil {
-//         log.Fatal("Error fetching URL:", err)
-//     }
-//     defer response.Body.Close()
-
-//     // Parse HTML
-//     doc, err := goquery.NewDocumentFromReader(response.Body)
-//     if err != nil {
-//         log.Fatal("Error parsing HTML:", err)
-//     }
-
-//     // Extract links
-//     var links []string
-//     targetFound := false // Flag to indicate if the target URL has been found
-
-//     doc.Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
-//         // Extract links within the main content area
-//         content.Find("a").Each(func(i int, s *goquery.Selection) {
-//             // Get the link's href attribute
-//             link, exists := s.Attr("href")
-
-//             if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
-//                 // Append the link to the slice
-//                 links = append(links, link)
-//                 if link == targeturl {
-//                     // If the link matches the target URL, set the flag
-//                     targetFound = true
-//                 }
-//             }
-//         })
-//     })
-
-//     writeFile("links.txt", links)
-//     return links, targetFound
-// }
 
 func ignoreLink(link string) bool{
     ignoreList := []string{
@@ -311,16 +285,12 @@ func BFS(startURL, targetURL string) []string {
     for len(queue) > 0 {
         path := queue[0]
         queue = queue[1:]
-
-        // Get the last visited URL in the path
         currentURL := path[len(path)-1]
 
         // Check if the target URL is reached
         if currentURL == targetURL {
             return path
         }
-
-        // Skip if the URL is already visited
         if visited[currentURL] {
             continue
         }
@@ -330,202 +300,65 @@ func BFS(startURL, targetURL string) []string {
         //println("flag")
         links,found := getListofLinks(targetURL,currentURL,visited)
 		if found {
-			return append([]string{targetURL}, path...)
-			//fmt.Println("we")
+            reversedPath := make([]string, len(path))
+            for i := range path {
+                reversedPath[i] = path[len(path)-1-i]
+            }
+			return append([]string{targetURL}, reversedPath...)
 		}
         // Add new paths to the queue
         for _, link := range links {
-            newPath := append([]string{}, path...)
-            newPath = append(newPath, link)
-            queue = append(queue, newPath)
+            if !visited[link] {
+                newPath := append([]string{}, path...)
+                newPath = append(newPath, link)
+                queue = append(queue, newPath)
+            }
         }
-        wg.Add(1)
+        fmt.Println(queue)
+    }
+    return nil // Target article not found
+}
+
+func BFScon(startURL, targetURL string) []string {
+    visited := make(map[string]bool)
+    queue := [][]string{{startURL}}
+    for len(queue) > 0 {
+        path := queue[0]
+        queue = queue[1:]
+        currentURL := path[len(path)-1]
+
+        // Check if the target URL is reached
+        if currentURL == targetURL {
+            return path
+        }
+        if visited[currentURL] {
+            continue
+        }
+        visited[currentURL] = true
+
+        // Get links from the current URL
+        //println("flag")
+        links,found := getListofLinks(targetURL,currentURL,visited)
+		if found {
+			return append(path,targetURL)
+		}
+        // Add new paths to the queue
+        var wg sync.WaitGroup
+        for _, link := range links {
+            wg.Add(1)
+            go func(link string, path []string) {
+                defer wg.Done()
+                if !visited[link] {
+                    newPath := append([]string{}, path...)
+                    newPath = append(newPath, link)
+                    queue = append(queue, newPath)
+                }
+            }(link,path)
+        }
+        wg.Wait() 
+        //fmt.Println(queue)
     }
     return nil // Target article not found
 }
   
-
-func IDS(startURL, targetURL string, depthLimit int) []string {
-    var wg sync.WaitGroup
-    resultChan := make(chan []string)
-
-    for depth := 0; depth <= depthLimit; depth++ {
-        wg.Add(1)
-        go func(depth int) {
-            defer wg.Done()
-            visited := make(map[string]bool)
-            path := DLS(startURL, targetURL, depth, visited)
-            if path != nil {
-                resultChan <- path
-            }
-        }(depth)
-    }
-
-    go func() {
-        wg.Wait()
-        close(resultChan)
-    }()
-
-    for path := range resultChan {
-        if path != nil {
-            return path
-        }
-    }
-
-    fmt.Println("not found")
-    return nil
-}
-func IDS2(startURL, targetURL string, depthLimit int) []string {
-    for depth := 0; depth <= depthLimit; depth++ {
-		visited := make(map[string]bool)
-		fmt.Println("depth" , depth)
-        path := DLS(startURL, targetURL, depth,visited)
-        if path != nil {
-            return path
-        }
-    }
-	fmt.Println("not found")
-    return nil
-}
-
-func IDS3(startURL, targetURL string, depthLimit int) []string {
-    i := 0
-    found := false
-    while (i < depthLimit && !found){
-        path := DLS(startURL,targtargetURL,i,visited)
-        i++
-    }
-    for depth := 0; depth <= depthLimit; depth++ {
-		visited := make(map[string]bool)
-		fmt.Println("depth" , depth)
-        path := DLS(startURL, targetURL, depth,visited)
-        if path != nil {
-            return path
-        }
-    }
-	fmt.Println("not found")
-    return nil
-}
-
-
-
-// Function to perform depth-limited search
-func DLS(currentURL, targetURL string, depthLimit int,visited (map[string]bool)) []string {
-    if depthLimit == 0 {
-        return nil
-    }
-
-    if currentURL == targetURL {
-        return []string{currentURL}
-    }
-
-    if visited[currentURL] {
-        return nil
-    }
-    visited[currentURL] = true
-
-    links,found := getListofLinks(targetURL,currentURL,visited)
-	//var i = 0
-	if found {
-		return []string{targetURL}
-		//fmt.Println("we")
-	}else if (!found && depthLimit-1 == 0){
-        return nil
-    }
-    
-    for _, link := range links {
-		//fmt.Println("dls loop",i)
-		//i++
-        path := DLS(link, targetURL, depthLimit-1,visited)
-        if path != nil {
-            return append([]string{currentURL}, path...)
-        }
-    }
-
-    return nil
-}
-
-type linkExtractionResult struct {
-    Links       []string
-    TargetFound bool
-}
-
-// Helper function to extract links from a part of the document
-func extractLinks(doc *goquery.Document, visited map[string]bool, targeturl string, links *[]string, start, end int) bool {
-    var targetFound bool
-    doc.Selection.Slice(start, end).Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
-        // Extract links within the main content area
-        content.Find("a").Each(func(i int, s *goquery.Selection) {
-            // Get the link's href attribute
-            link, exists := s.Attr("href")
-
-            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, *links) && !visited[link] && !strings.ContainsAny(link, "#") {
-                // Append the link to the slice
-                *links = append(*links, link)
-                if link == targeturl {
-                    // If the link matches the target URL, set the flag
-                    targetFound = true
-                }
-            }
-        })
-    })
-    return targetFound
-}
-
-func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, bool) {
-    url = "https://en.wikipedia.org" + url
-    response, err := http.Get(url)
-    if err != nil {
-        log.Fatal("Error fetching URL:", err)
-    }
-    defer response.Body.Close()
-
-    // Parse HTML
-    doc, err := goquery.NewDocumentFromReader(response.Body)
-    if err != nil {
-        log.Fatal("Error parsing HTML:", err)
-    }
-
-    // Extract links concurrently
-    var wg sync.WaitGroup
-    resultChan := make(chan linkExtractionResult, 4) // Two parts: top and bottom
-
-    partSize := doc.Length() / 4
-
-    // Process each part of the document concurrently
-    for i := 0; i < 4; i++ {
-        start := i * partSize
-        end := (i + 1) * partSize
-        if i == 3 {
-            end = doc.Length() // Last part may be larger if doc.Length() is not divisible by 4
-        }
-
-        wg.Add(1)
-        go func(start, end int) {
-            defer wg.Done()
-            var links []string
-            targetFound := extractLinks(doc, visited, targeturl, &links, start, end)
-            resultChan <- linkExtractionResult{Links: links, TargetFound: targetFound}
-        }(start, end)
-    }
-
-    // Wait for all parts to finish and close the result channel
-    go func() {
-        wg.Wait()
-        close(resultChan)
-    }()
-
-    // Collect results
-    var allLinks []string
-    var targetFound bool
-    for result := range resultChan {
-        allLinks = append(allLinks, result.Links...)
-        if result.TargetFound {
-            targetFound = true
-        }
-    }
-
-    writeFile("links.txt", allLinks)
-    return allLinks, targetFound
-}
 

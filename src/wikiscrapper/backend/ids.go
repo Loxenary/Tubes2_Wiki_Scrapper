@@ -89,16 +89,16 @@ func DLS(currentURL, targetURL string, depthLimit int, visited map[string]bool) 
 
 func IDS(startURL, targetURL string, depthLimit int) []string {
 
-
-	for depth := 0; depth <= depthLimit; depth++ {
+	end = false
+	for depth := 0; depth <= depthLimit; depth++{
 		//visited := make(map[string]bool)
 		fmt.Println("depth",depth)
 		start := time.Now()
 		//path := DLS(startURL, targetURL, depth,visited)
 		path := DLS1(startURL, targetURL, depth)
-		fmt.Println(time.Since(start))
+		fmt.Println("waktu DLS",depth,":",time.Since(start))
 		if path != nil {
-			fmt.Println(path)
+			writeFile("output.txt",append([]string{"Output IDS :"},path...))
 			return path
 		}
 		
@@ -139,10 +139,10 @@ func IDScon(startURL, targetURL string, depthLimit int) []string {
 	return nil
 }
 
-
+var end bool = false
 
 func DLS1(currentURL, targetURL string, depthLimit int) []string {
-	fmt.Println("DLS",currentURL,"Depth :",depthLimit)
+	//fmt.Println("DLS",currentURL,"Depth :",depthLimit)
 	if depthLimit == 0 {
 		return nil
 	}
@@ -163,9 +163,13 @@ func DLS1(currentURL, targetURL string, depthLimit int) []string {
 
 	var wg sync.WaitGroup
 	resultChan := make(chan []string)
-	sem := make(chan struct{}, 10)
+	sem := make(chan struct{}, 20)
 
 	for _, link := range links {
+		if end{
+			fmt.Println("end")
+			break
+		}
 		sem <- struct{}{}
 		wg.Add(1)
 		go func(link string) {
@@ -175,7 +179,9 @@ func DLS1(currentURL, targetURL string, depthLimit int) []string {
             }()
 			subPath := DLS1(link, targetURL, depthLimit-1)
 			if subPath != nil {
+				writeFile("output.txt",append([]string{currentURL}, subPath...))
 				resultChan <- append([]string{currentURL}, subPath...)
+				end = true
 			}
 		}(link)
 	}

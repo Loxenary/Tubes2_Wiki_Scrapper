@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -34,6 +33,7 @@ type Response struct {
 
 var UrlData = make(chan Data, 1)
 var OutputData = make(chan Response, 1)
+var StatusCode = make(chan int, 1)
 func postDataHandler(w http.ResponseWriter, r *http.Request){
 	if r.Method != "POST"{
 		http.Error(w,  "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -72,7 +72,7 @@ func getDataHandler(w http.ResponseWriter, r *http.Request){
 
 func PathConverter(str []string) [] Path{
     var paths []Path
-    for i := len(str) - 1; i >= 0; i-- {
+    for i :=0; i < len(str); i++ {
         paths = append(paths, Path{str[i]})
     }
     return paths
@@ -90,8 +90,11 @@ func processData(){
         start := time.Now()
         var path []string
         counter := int(0)
+
+        // Used to Inform the Frontend about current state of the program
+        
         if data.Algorithm == "BFS" {
-            path = BFSTest(url, target, &counter)
+            path = BFSWithPrioqueue(url, target, &counter)
         } else {
             visited := make(map[string]bool)
             path = DLS(url, target, 4, visited)
@@ -126,6 +129,45 @@ func main() {
     if err := http.ListenAndServe(":8080", nil); err != nil {
         log.Fatal(err)
     }
+}
+
+
+func getListofLinksMult(targeturl, url string, visited map[string]bool, httpClient *http.Client) ([]string, bool) {
+    url = "https://en.wikipedia.org" + url
+
+    response, err := httpClient.Get(url)
+    if err != nil {
+        log.Fatal("Error fetching URL:", err)
+    }
+    defer response.Body.Close()
+
+    // Parse HTML
+    doc, err := goquery.NewDocumentFromReader(response.Body)
+    if err != nil {
+        log.Fatal("Error parsing HTML:", err)
+    }
+
+    // Extract links
+    var links []string
+    targetFound := false // Flag to indicate if the target URL has been found
+
+    doc.Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
+        // Extract links within the main content area
+        content.Find("a").Each(func(i int, s *goquery.Selection) {
+            // Get the link's href attribute
+            link, exists := s.Attr("href")
+            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
+                // Append the link to the slice
+                links = append(links, link)
+                if link == targeturl {
+                    // If the link matches the target URL, set the flag
+                    targetFound = true
+                    return
+                }
+            }
+        })
+    })
+    return links, targetFound
 }
 func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, bool) {
     url = "https://en.wikipedia.org" + url
@@ -189,6 +231,7 @@ func ignoreLink(link string) bool{
 }
 
 
+
 func writeFile(filename string, links []string) {
     file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
     if err != nil {
@@ -233,124 +276,8 @@ func isin(link string,array []string) bool{
 
 
 
-func FindCorrectPath(currentUrl string,queue [][]string) []string{
-    for _, path := range queue {
-        if path[len(path)-1] == currentUrl {
-            // If the last element of the path matches currentURL, return the path
-            return path
-        } 
-        
-    }
-    return nil
-}
-
-func RemovePathFromQueue(queue [][]string, deleted []string) [][]string {
-    // Find deleted index 
-    
-    for i, path := range queue {
-        if(len(path) > 0 && len(deleted) > 0){
-            if path[len(path)-1] == deleted[len(deleted)-1] {
-                newQueue := [][]string{}
-                for j, linkPath := range queue{
-                    if(i != j){
-                        newQueue = append(newQueue, linkPath)
-                    }
-                }
-                return newQueue
-            }
-        }
-    }
-    return nil
-}
-
-func BFSTest(startURL, targetURL string, counter *int) []string {
-    visited := make(map[string]bool)
-    webFind := make(map[string]bool)
-    var urlToFind Prioqueue
-    urlToFind.Init(targetURL)
-    urlToFind.Enqueue(startURL)
-    var pathQueue = [][]string{{startURL}}
-    for(urlToFind.Length()> 0){    
-        currentUrl, priority := urlToFind.Dequeue()
-        fmt.Println("URL TO FIND: ", currentUrl, "Priority : ",priority)
-        path := FindCorrectPath(currentUrl, pathQueue)
-        if(currentUrl == targetURL){
-            return path
-        }
-
-        if(visited[currentUrl]){
-            continue
-        }
-        visited[currentUrl] = true
-
-        webFind[currentUrl] = true
-        links, isFound := getListofLinks(targetURL,currentUrl,webFind)
-        
-        if(isFound){
-            (*counter) += len(links)
-            path := append(path, targetURL)
-            
-            return path
-        }
-        appendedLink := []string{}
-        for _, link := range links {
-            if(!webFind[link]){
-                (*counter)++
-                newPath := append([]string{}, path...)
-                newPath = append(newPath, link)
-                pathQueue = append(pathQueue, newPath)
-                urlToFind.Enqueue(link)
-                appendedLink = append(appendedLink,link)
-                webFind[link] = true
-            }
-        }
-        writeFile("links.txt",appendedLink)
-        pathQueue = RemovePathFromQueue(pathQueue, path)
-    }
-    return nil
-}
-
 func Checker(){
     fmt.Println("is this called??")
-}
-func BFS(startURL, targetURL string) []string {
-    visited := make(map[string]bool)
-    queue := [][]string{{startURL}}
-    for len(queue) > 0 {
-        path := queue[0]
-        queue = queue[1:]
-        currentURL := path[len(path)-1]
-
-        // Check if the target URL is reached
-        if currentURL == targetURL {
-            return path
-        }
-        if visited[currentURL] {
-            continue
-        }
-        visited[currentURL] = true
-
-        // Get links from the current URL
-        //println("flag")
-        links,found := getListofLinks(targetURL,currentURL,visited)
-		if found {
-            reversedPath := make([]string, len(path))
-            for i := range path {
-                reversedPath[i] = path[len(path)-1-i]
-            }
-			return append([]string{targetURL}, reversedPath...)
-		}
-        // Add new paths to the queue
-        for _, link := range links {
-            if !visited[link] {
-                newPath := append([]string{}, path...)
-                newPath = append(newPath, link)
-                queue = append(queue, newPath)
-            }
-        }
-        fmt.Println(queue)
-    }
-    return nil // Target article not found
 }
   
 

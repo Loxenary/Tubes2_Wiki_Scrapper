@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 	"unicode/utf8"
+    "os"
+    "log"
 )
 
 type Target struct{
@@ -12,16 +15,18 @@ type Target struct{
 type Item struct {
     key      string
     priority int
+    depth int
 }
 
 type PriorityQueue struct {
-    items []*Item
+    items []Item
 }
 
 type Prioqueue struct {
     treshold int // Used to preserve some Enqueue before declining priorities
     target Target
     pq     PriorityQueue
+
     sync.Mutex
 }
 
@@ -38,9 +43,10 @@ func (pq *Prioqueue) ConstructTarget(target string) {
 func (pq *Prioqueue) Init(target string) {
     pq.Lock()
     defer pq.Unlock()
-    pq.pq.items = make([]*Item, 0)
+    pq.pq.items = make([]Item, 0)
     pq.ConstructTarget(target)
     pq.treshold = 10 // Limit of Enqueue without priorities
+
 }
 
 
@@ -97,74 +103,94 @@ func (pq *Prioqueue) priorityDecision(key string) int {
     return StringCompare(key, pq.target.name)
 }
 
-func (pq *Prioqueue) Enqueue(key string) {
+func(pq *Prioqueue) ReSortList(item Item){
+
+    id := 0
+    for i:= 0; i < pq.Length();i++{
+        temp := pq.pq.items[i]
+        if(item.depth > temp.depth){
+            continue
+        }
+
+        if(item.depth == temp.depth && item.priority < temp.priority){
+            id = i
+            break
+        }else if(item.depth < temp.depth){
+            id = i
+            break
+        }
+    }
+
+    pq.pq.items = append(pq.pq.items[:id], append([]Item{item}, pq.pq.items[id:]...)...)
+}
+func writeFilePrioque(filename string, links []string, depth []string) {
+    file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+    if err != nil {
+        log.Fatal("Error opening file:", err)
+    }
+    defer file.Close()
+
+    for i, link := range links {
+        // Write each link to the file
+        _, err := file.WriteString("Link: " +link + " Depth : "+ depth[i] + "\n")
+        if err != nil {
+            log.Fatal("Error writing to file:", err)
+        }
+    }
+
+    //fmt.Println("Links appended to", filename)
+}
+func (pq *Prioqueue) Enqueue(key string, depth int) {
     pq.Lock()
     defer pq.Unlock()
     if pq.pq.items == nil {
-        pq.pq.items = make([]*Item, 0)
+        pq.pq.items = make([]Item, 0)
     }
 
     removeWiki := key[5:]
     priority := pq.priorityDecision(removeWiki)
-    item := &Item{key, priority}
-    if(pq.treshold > 0){
-        pq.treshold--
-        pq.pq.items = append(pq.pq.items, item)
-        pq.bubbleUp(len(pq.pq.items) - 1)
-    }else{
-        if(item.priority < 15){
-            pq.pq.items = append(pq.pq.items, item)
-            pq.bubbleUp(len(pq.pq.items) - 1)
-        }
+
+    if(priority == 99){
+        return
     }
-    
+    item := Item{key, priority, depth}
+    pq.pq.items = append(pq.pq.items, item)
+    pq.ReSortList(item)
 }
 
-func (pq *Prioqueue) bubbleUp(index int) {
-    for index > 0 {
-        parentIndex := (index - 1) / 2
-        if pq.pq.items[index].priority < pq.pq.items[parentIndex].priority {
-            pq.pq.items[index], pq.pq.items[parentIndex] = pq.pq.items[parentIndex], pq.pq.items[index]
-            index = parentIndex
-        } else {
-            break
-        }
-    }
-}
-
-func (pq *Prioqueue) Dequeue() (string,int) {
+//Dequeue The Prio List 
+//Return The Link, Priority, and Depth of the most prioritized Item
+func (pq *Prioqueue) Dequeue() (string,int,int) {
     pq.Lock()
     defer pq.Unlock()
     if len(pq.pq.items) == 0 {
-        return "",0
+        return "",99,99
     }
     root := pq.pq.items[0]
-    lastIndex := len(pq.pq.items) - 1
-    pq.pq.items[0] = pq.pq.items[lastIndex]
-    pq.pq.items = pq.pq.items[:lastIndex]
-    pq.heapifyDown(0)
-    return root.key,root.priority
+    pq.pq.items = pq.pq.items[1:]
+    return root.key,root.priority,root.depth
 }
+/*
+Display Data of Prioqueue
+Status : Full (Display Full Data)
+Status : ListOnly (Display Only The List)
+Status: Length (Dsipaly Only the Length)
+*/
+func (pq *Prioqueue) Log(status string){
+    if(status == "full"){
+        fmt.Println("=====PRIOQUEUE DATA====")
+        fmt.Println("Data: ")
+        fmt.Println(pq.pq.items)
+        fmt.Println("Length: ")
+        fmt.Println(len(pq.pq.items))
 
-func (pq *Prioqueue) heapifyDown(index int) {
-    lastIndex := len(pq.pq.items) - 1
-    for {
-        leftChildIndex := 2*index + 1
-        rightChildIndex := 2*index + 2
-        swapIndex := index
-
-        if leftChildIndex <= lastIndex && pq.pq.items[leftChildIndex].priority < pq.pq.items[swapIndex].priority {
-            swapIndex = leftChildIndex
-        }
-        if rightChildIndex <= lastIndex && pq.pq.items[rightChildIndex].priority < pq.pq.items[swapIndex].priority {
-            swapIndex = rightChildIndex
-        }
-
-        if swapIndex != index {
-            pq.pq.items[index], pq.pq.items[swapIndex] = pq.pq.items[swapIndex], pq.pq.items[index]
-            index = swapIndex
-        } else {
-            break
-        }
+    }else if(status == "ListOnly"){
+        fmt.Println("=====PRIOQUEUE DATA====")
+        fmt.Println("Data: ")
+        fmt.Println(pq.pq.items)
+    }else{
+        fmt.Println("=====PRIOQUEUE DATA====")
+        fmt.Println("Length: ")
+        fmt.Println(len(pq.pq.items))
     }
 }

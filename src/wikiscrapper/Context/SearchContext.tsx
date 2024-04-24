@@ -1,7 +1,10 @@
 import { createContext, useContext, useState } from "react";
 
 export interface SearchWikiInterface {
-  Algorithm: string;
+  fromValue: string;
+  toValue: string;
+  Algorithm : string;
+  setDataInput: (from: string, to: string) => void;
   setAlgorithm: (Algorithm: string) => void;
 }
 
@@ -25,14 +28,18 @@ interface SearchWikiContextProvider {
 export const WikiSearchContextProvider: React.FC<SearchWikiContextProvider> = ({
   children,
 }) => {
+  const [fromValue, setFromValue] = useState("");
+  const [toValue, setToValue] = useState("");
   const [Algorithm, setAlgorithm] = useState("BFS");
+
+  const setDataInput = (from: string, to: string) => {
+    setFromValue(from);
+    setToValue(to);
+  };
+
   return (
-    <SearchContext.Provider
-      value={{
-        Algorithm,
-        setAlgorithm,
-      }}
-    >
+    <SearchContext.Provider value={{ fromValue, toValue, Algorithm, setDataInput, setAlgorithm }}>
+
       {children}
     </SearchContext.Provider>
   );

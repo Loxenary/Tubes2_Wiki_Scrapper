@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 )
 
 //Ini Struct buat nyimpen data input dari web
@@ -91,13 +91,14 @@ func processData(){
         var path []string
         counter := int(0)
         if data.Algorithm == "BFS" {
-            path = BFSTest(url, target, &counter)
+            //path = BFSTest(url, target, &counter)
+            path = BFScon(url,target)
         } else {
-            visited := make(map[string]bool)
-            path = DLS(url, target, 4, visited)
+            //visited := make(map[string]bool)
+            path = IDS(url, target, 6)
         }
         runtime := time.Since(start)
-    
+        writeFile("output.txt",path)
         // Construct response
         response := Response{
             Checkcount: fmt.Sprint(counter),
@@ -127,42 +128,7 @@ func main() {
         log.Fatal(err)
     }
 }
-func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, bool) {
-    url = "https://en.wikipedia.org" + url
 
-    response, err := http.Get(url)
-    if err != nil {
-        log.Fatal("Error fetching URL:", err)
-    }
-    defer response.Body.Close()
-
-    // Parse HTML
-    doc, err := goquery.NewDocumentFromReader(response.Body)
-    if err != nil {
-        log.Fatal("Error parsing HTML:", err)
-    }
-
-    // Extract links
-    var links []string
-    targetFound := false // Flag to indicate if the target URL has been found
-
-    doc.Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
-        // Extract links within the main content area
-        content.Find("a").Each(func(i int, s *goquery.Selection) {
-            // Get the link's href attribute
-            link, exists := s.Attr("href")
-            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
-                // Append the link to the slice
-                links = append(links, link)
-                if link == targeturl {
-                    // If the link matches the target URL, set the flag
-                    targetFound = true
-                }
-            }
-        })
-    })
-    return links, targetFound
-}
 
 func ignoreLink(link string) bool{
     ignoreList := []string{
@@ -352,55 +318,47 @@ func BFS(startURL, targetURL string) []string {
     }
     return nil // Target article not found
 }
-  
 
-func IDS(startURL, targetURL string, depthLimit int) []string {
-    for depth := 0; depth <= depthLimit; depth++ {
-		visited := make(map[string]bool)
-		fmt.Println("depth" , depth)
-        path := DLS(startURL, targetURL, depth,visited)
-        if path != nil {
+func BFScon(startURL, targetURL string) []string {
+    visited := make(map[string]bool)
+    queue := [][]string{{startURL}}
+    for len(queue) > 0 {
+        path := queue[0]
+        queue = queue[1:]
+        currentURL := path[len(path)-1]
+
+        // Check if the target URL is reached
+        if currentURL == targetURL {
             return path
         }
-    }
-	fmt.Println("not found")
-    return nil
-}
-
-
-
-// Function to perform depth-limited search
-func DLS(currentURL, targetURL string, depthLimit int,visited (map[string]bool)) []string {
-    path := []string{currentURL}
-    if depthLimit == 0 {
-        return nil
-    }
-
-    if currentURL == targetURL {
-        return []string{currentURL}
-    }
-
-    if visited[currentURL] {
-        return nil
-    }
-    visited[currentURL] = true
-
-    links,found := getListofLinks(targetURL,currentURL,visited)
-	//var i = 0
-	if found {
-		return append([]string{targetURL},path...)
-		//fmt.Println("we")
-	}
-    for _, link := range links {
-		//fmt.Println("dls loop",i)
-		//i++
-        path := DLS(link, targetURL, depthLimit-1,visited)
-        if path != nil {
-            return append([]string{currentURL}, path...)
+        if visited[currentURL] {
+            continue
         }
+        visited[currentURL] = true
+
+        // Get links from the current URL
+        //println("flag")
+        links,found := getListofLinks(targetURL,currentURL,visited)
+		if found {
+			return append(path,targetURL)
+		}
+        // Add new paths to the queue
+        var wg sync.WaitGroup
+        for _, link := range links {
+            wg.Add(1)
+            go func(link string, path []string) {
+                defer wg.Done()
+                if !visited[link] {
+                    newPath := append([]string{}, path...)
+                    newPath = append(newPath, link)
+                    queue = append(queue, newPath)
+                }
+            }(link,path)
+        }
+        wg.Wait() 
+        //fmt.Println(queue)
     }
-
-    return nil
+    return nil // Target article not found
 }
-
+  
 

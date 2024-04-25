@@ -9,7 +9,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, bool) {
+func getListofLinks(targeturl, url string, visited SafeMap) ([]string, bool) {
     url = "https://en.wikipedia.org" + url
 
     response, err := http.Get(url)
@@ -33,7 +33,7 @@ func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, b
         content.Find("a").Each(func(i int, s *goquery.Selection) {
             // Get the link's href attribute
             link, exists := s.Attr("href")
-            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
+            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited.Get(link) && !strings.ContainsAny(link, "#") {
                 // Append the link to the slice
                 links = append(links, link)
                 if link == targeturl {
@@ -44,9 +44,11 @@ func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, b
             }
         })
     })
-    writeFile("links.txt",links)
+
+    //writeFile("links.txt", links)
     return links, targetFound
 }
+
 
 type linkExtractionResult struct {
 	Links       []string
@@ -54,7 +56,7 @@ type linkExtractionResult struct {
 }
 
 // Helper function to extract links from a part of the document
-func extractLinks(doc *goquery.Document, visited map[string]bool, targeturl string, links *[]string, start, end int) bool {
+func extractLinks(doc *goquery.Document, visited SafeMap, targeturl string, links *[]string, start, end int) bool {
 	var targetFound bool
 	doc.Selection.Slice(start, end).Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
 		// Extract links within the main content area
@@ -62,7 +64,7 @@ func extractLinks(doc *goquery.Document, visited map[string]bool, targeturl stri
 			// Get the link's href attribute
 			link, exists := s.Attr("href")
 
-			if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, *links) && !visited[link] && !strings.ContainsAny(link, "#") {
+			if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, *links) && !visited.Get(link) && !strings.ContainsAny(link, "#") {
 				// Append the link to the slice
 				*links = append(*links, link)
 				if link == targeturl {
@@ -75,7 +77,7 @@ func extractLinks(doc *goquery.Document, visited map[string]bool, targeturl stri
 	return targetFound
 }
 
-func getListofLinks1(targeturl, url string, visited map[string]bool) ([]string, bool) {
+func getListofLinks1(targeturl, url string, visited SafeMap) ([]string, bool) {
 	url = "https://en.wikipedia.org" + url
 	response, err := http.Get(url)
 	if err != nil {
@@ -129,7 +131,7 @@ func getListofLinks1(targeturl, url string, visited map[string]bool) ([]string, 
 		}
 	}
 
-	writeFile("links.txt", allLinks)
+	//writeFile("links.txt", allLinks)
 	return allLinks, targetFound
 }
 
@@ -171,3 +173,4 @@ func getListofLinks2(targeturl, url string) ([]string, bool) {
     writeFile("links.txt",links)
     return links, targetFound
 }
+

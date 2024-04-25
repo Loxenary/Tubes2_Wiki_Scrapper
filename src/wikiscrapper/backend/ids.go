@@ -9,6 +9,179 @@ import (
 	"time"
 )
 
+
+type SafeMap struct {
+    mu sync.Mutex
+    visited map[string]bool
+}
+
+
+
+func NewSafeMap() *SafeMap {
+    return &SafeMap{visited: make(map[string]bool)}
+}
+
+func (sm *SafeMap) Set(key string, value bool) {
+    sm.mu.Lock()
+    defer sm.mu.Unlock()
+    sm.visited[key] = value
+}
+
+func (sm *SafeMap) Get(key string) bool {
+    sm.mu.Lock()
+    defer sm.mu.Unlock()
+    return sm.visited[key]
+}
+
+
+
+var end bool = false
+var count int
+var visited SafeMap
+
+func IDS(startURL, targetURL string, depthLimit int) []string {
+	
+	end = false
+	for depth := 0; depth <= depthLimit; depth++{
+		visited = *NewSafeMap()
+		count = 0
+		if end {break}
+		//visited := make(map[string]bool)
+		fmt.Println("depth",depth)
+		start := time.Now()
+		//path := DLS(startURL, targetURL, depth,visited)
+		path := DLS1(startURL, targetURL, depth,visited)
+		fmt.Println("waktu DLS",depth,":",time.Since(start))
+		fmt.Println(path)
+		if path != nil {
+			fmt.Println("Ketemu")
+			fmt.Println("melalui",count,"artikel")
+			return path
+		}
+		fmt.Println("Tidak Ketemu")
+	}
+
+	fmt.Println("not found")
+	return nil
+}
+
+func DLS1(currentURL, targetURL string, depthLimit int, visited SafeMap) []string {
+    // Make a copy of the visited map
+    localVisited := SafeMap{visited: make(map[string]bool)}
+    for key, value := range visited.visited {
+        localVisited.visited[key] = value
+    }
+
+    //fmt.Println("DLS", currentURL, "Depth :", depthLimit)
+
+    if localVisited.Get(currentURL) {
+        fmt.Println("flag visited")
+        return nil
+    }
+
+    if depthLimit == 0 {
+        return nil
+    }
+
+    if currentURL == targetURL {
+        return []string{currentURL}
+    }
+
+    if depthLimit == 1 {
+        return nil
+    }
+    localVisited.Set(currentURL, true)
+    count++
+    links, found := getListofLinks1(targetURL, currentURL, localVisited)
+    if found {
+		fmt.Println("found target from",currentURL)
+        return []string{currentURL, targetURL}
+    } else if !found && depthLimit == 2 {
+        return nil
+    }
+
+    var wg sync.WaitGroup
+    resultChan := make(chan []string)
+    sem := make(chan struct{}, 30)
+
+    for _, link := range links {
+        if end {
+            fmt.Println("end")
+            break
+        }
+        sem <- struct{}{}
+        wg.Add(1)
+        go func(link string) {
+            defer func() {
+                <-sem // release semaphore
+				//fmt.Println("sem left:",len(sem))
+                wg.Done()
+            }()
+            subPath := DLS1(link, targetURL, depthLimit-1, localVisited)
+            if subPath != nil {
+                writeFile("output.txt", append([]string{"output subpath :",currentURL}, subPath...))
+				fmt.Println("subPath from ",currentURL,":",subPath)
+				fmt.Println("end :",end)
+				end = true
+                resultChan <- append([]string{currentURL}, subPath...)
+				
+                
+            }
+        }(link)
+    }
+
+    go func() {
+        wg.Wait()
+		//fmt.Println("closing resultchan")
+        close(resultChan)
+    }()
+    select {
+    case path := <-resultChan:
+        if path != nil {
+			//fmt.Println("flag return")
+            return path
+        }
+    default:
+		fmt.Println("no path recieved from",currentURL)
+        // If no path received, continue
+    }
+
+    return nil
+}
+
+
+
+func IDScon(startURL, targetURL string, depthLimit int) []string {
+	var wg sync.WaitGroup
+	resultChan := make(chan []string)
+
+	for depth := 0; depth <= depthLimit; depth++ {
+		visited := make(map[string]bool)
+		wg.Add(1)
+		go func(depth int) {
+			defer wg.Done()
+			path := DLS(startURL, targetURL, depth,visited)
+			if path != nil {
+				resultChan <- path
+			}
+		}(depth)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	for path := range resultChan {
+		if path != nil {
+			return path
+		}
+	}
+
+	fmt.Println("not found")
+	return nil
+}
+
 func IDS1(startURL, targetURL string, depthLimit int) []string {
 	var wg sync.WaitGroup
 	var resultMutex sync.Mutex
@@ -68,7 +241,7 @@ func DLS(currentURL, targetURL string, depthLimit int, visited map[string]bool) 
 	visited[currentURL] = true
 
 	if depthLimit > 1{
-		links, found := getListofLinks1(targetURL, currentURL, visited)
+		links, found := getListofLinks2(targetURL, currentURL)
 		if found{
 			return []string{currentURL,targetURL}
 			//fmt.Println("we")
@@ -86,120 +259,6 @@ func DLS(currentURL, targetURL string, depthLimit int, visited map[string]bool) 
 	}
 	return nil
 }
-
-func IDS(startURL, targetURL string, depthLimit int) []string {
-
-	end = false
-	for depth := 0; depth <= depthLimit; depth++{
-		//visited := make(map[string]bool)
-		fmt.Println("depth",depth)
-		start := time.Now()
-		//path := DLS(startURL, targetURL, depth,visited)
-		path := DLS1(startURL, targetURL, depth)
-		fmt.Println("waktu DLS",depth,":",time.Since(start))
-		if path != nil {
-			writeFile("output.txt",append([]string{"Output IDS :"},path...))
-			return path
-		}
-		
-	}
-
-	fmt.Println("not found")
-	return nil
-}
-
-func IDScon(startURL, targetURL string, depthLimit int) []string {
-	var wg sync.WaitGroup
-	resultChan := make(chan []string)
-
-	for depth := 0; depth <= depthLimit; depth++ {
-		visited := make(map[string]bool)
-		wg.Add(1)
-		go func(depth int) {
-			defer wg.Done()
-			path := DLS(startURL, targetURL, depth,visited)
-			if path != nil {
-				resultChan <- path
-			}
-		}(depth)
-	}
-
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	for path := range resultChan {
-		if path != nil {
-			return path
-		}
-	}
-
-	fmt.Println("not found")
-	return nil
-}
-
-var end bool = false
-
-func DLS1(currentURL, targetURL string, depthLimit int) []string {
-	//fmt.Println("DLS",currentURL,"Depth :",depthLimit)
-	if depthLimit == 0 {
-		return nil
-	}
-
-	if currentURL == targetURL {
-		return []string{currentURL}
-	}
-
-	if depthLimit == 1{
-		return nil
-	}
-	links, found := getListofLinks2(targetURL, currentURL)
-	if found {
-		return []string{currentURL,targetURL}
-	}else if !found && depthLimit  == 2{
-		return nil
-	}
-
-	var wg sync.WaitGroup
-	resultChan := make(chan []string)
-	sem := make(chan struct{}, 20)
-
-	for _, link := range links {
-		if end{
-			fmt.Println("end")
-			break
-		}
-		sem <- struct{}{}
-		wg.Add(1)
-		go func(link string) {
-			defer func() {
-                <-sem // release semaphore
-                wg.Done()
-            }()
-			subPath := DLS1(link, targetURL, depthLimit-1)
-			if subPath != nil {
-				writeFile("output.txt",append([]string{currentURL}, subPath...))
-				resultChan <- append([]string{currentURL}, subPath...)
-				end = true
-			}
-		}(link)
-	}
-
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	for path := range resultChan {
-		if path != nil {
-			return path
-		}
-	}
-
-	return nil
-}
-
 
 // func ids_path(startURL,targetURL string,depthLimit int)[]string{
 // 	paths := [][]string{{}}

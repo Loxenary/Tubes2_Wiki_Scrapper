@@ -92,7 +92,7 @@ func processData(){
         counter := int(0)
         if data.Algorithm == "BFS" {
             //path = BFSTest(url, target, &counter)
-            path = BFScon(url,target)
+            path = BFS(url,target)
         } else {
             //visited := make(map[string]bool)
             path = IDS(url, target, 6)
@@ -188,12 +188,38 @@ func clearFile(filename string) {
     }
 }
 
-func isin(link string,array []string) bool{
-    for _, item := range array {
-        if item == link {
+func isin(link string, array []string) bool {
+    // Calculate the size of each part
+    partSize := len(array) / 4
+
+    // Channel to receive results
+    found := make(chan bool, 4)
+
+    // Process each part of the array concurrently
+    for i := 0; i < 4; i++ {
+        start := i * partSize
+        end := (i + 1) * partSize
+        if i == 3 {
+            end = len(array) // Ensure the last part includes the remaining elements
+        }
+        go func(arr []string) {
+            for _, item := range arr {
+                if item == link {
+                    found <- true
+                    return
+                }
+            }
+            found <- false
+        }(array[start:end])
+    }
+
+    // Collect results from the channels
+    for i := 0; i < 4; i++ {
+        if <-found {
             return true
         }
     }
+
     return false
 }
 
@@ -250,7 +276,7 @@ func BFSTest(startURL, targetURL string, counter *int) []string {
         visited[currentUrl] = true
 
         webFind[currentUrl] = true
-        links, isFound := getListofLinks(targetURL,currentUrl,webFind)
+        links, isFound := getListofLinks2(targetURL,currentUrl/*,webFind*/)
         
         if(isFound){
             (*counter) += len(links)
@@ -298,7 +324,7 @@ func BFS(startURL, targetURL string) []string {
 
         // Get links from the current URL
         //println("flag")
-        links,found := getListofLinks(targetURL,currentURL,visited)
+        links,found := getListofLinks2(targetURL,currentURL/*,visited*/)
 		if found {
             reversedPath := make([]string, len(path))
             for i := range path {
@@ -314,7 +340,7 @@ func BFS(startURL, targetURL string) []string {
                 queue = append(queue, newPath)
             }
         }
-        fmt.Println(queue)
+        //fmt.Println(queue)
     }
     return nil // Target article not found
 }
@@ -338,7 +364,7 @@ func BFScon(startURL, targetURL string) []string {
 
         // Get links from the current URL
         //println("flag")
-        links,found := getListofLinks(targetURL,currentURL,visited)
+        links,found := getListofLinks2(targetURL,currentURL/*,visited*/)
 		if found {
 			return append(path,targetURL)
 		}

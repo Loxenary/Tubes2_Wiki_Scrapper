@@ -1,7 +1,7 @@
 "use client";
 import Hero from "./components/main/Hero";
 import About from "./components/main/About";
-import { useEffect, useState } from "react";
+import { useEffect, useState, createContext } from "react";
 
 import AOS from "aos";
 import "aos/dist/aos.css";
@@ -9,8 +9,17 @@ import "aos/dist/aos.css";
 import InputEntry from "./components/main/InputEntry/page";
 import Toast from "@/app/components/main/toast";
 import OutputPage from "./components/main/Output/page";
-import { BoolOutputSetup } from "./components/main/InputEntry/page";
 import { OutputContextProvider } from "@/Context/OutputContext";
+
+export interface ISetupOutputPage {
+  setOutputState:  React.Dispatch<React.SetStateAction<boolean>>
+}
+
+// Context that have responsibility on Visibility of the output page
+export const BoolOutputSetup = createContext<ISetupOutputPage>({
+  setOutputState: () => {},
+});
+
 export default function Home() {
   useEffect(() => {
     AOS.init({duration:1200})

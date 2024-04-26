@@ -183,86 +183,68 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 	var mutex sync.Mutex
 	// var isResultFound = false
 	var wg sync.WaitGroup
-	num_of_guorotine := 2
+	num_of_guorotine := 10
 
-	stopChan := make(chan struct{})
+	stopchan := make(chan struct{})
 
 	pathQueue[startURL] = []string{startURL}
 
 	worker := func(workerID int, httpClient *http.Client) {
 		defer wg.Done()
 		for {
-			select {
-			case <-stopChan:
+			// if urlToFind.Length() == 0 {
+			// 	fmt.Println("Length is 0 ","Worker: ", workerID)
+			// 	continue
+			// }
+			currentURL, priority, depth := urlToFind.Dequeue()
+
+			if(depth == 99){
+				continue
+			}
+
+			mutex.Lock()
+			path := pathQueue[currentURL]
+			mutex.Unlock()
+
+			fmt.Println("Worker:", workerID, "URL TO FIND:", currentURL, "Priority:", priority, "Depth:", depth, "Length : ", urlToFind.Length())
+
+			if currentURL == targetURL {
+				result = path
+				// isResultFound = true
 				return
-			default:
+			}
+			mutex.Lock()
+			(*counter)++
+			webFind[currentURL] = true
+			mutex.Unlock()
+
+			mutex.Lock()
+			links, isFound := getListofLinksMult(targetURL, currentURL, webFind, httpClient)
+			if isFound {
+				(*counter) += len(links)
+				newPath := append(path, targetURL)
+				result = newPath
+				mutex.Unlock()
+				close(stopchan)
+				return
+			}
+
+			mutex.Unlock()
+			for _, link := range links {
 				mutex.Lock()
-				if urlToFind.Length() == 0 {
-					fmt.Println("Length is 0", "Worker: ", workerID)
-					mutex.Unlock()
-					continue
+				if !webFind[link] {
+					newPath := append([]string{}, path...)
+					newPath = append(newPath, link)
+					pathQueue[link] = newPath
+					webFind[link] = true
+					urlToFind.Enqueue(link, depth + 1)
 				}
 				mutex.Unlock()
-
-				currentURL, priority, depth := urlToFind.Dequeue()
-
-				if depth == 99 {
-					continue
-				}
-
-				mutex.Lock()
-				path := pathQueue[currentURL]
-				mutex.Unlock()
-
-				fmt.Println("Worker:", workerID, "URL TO FIND:", currentURL, "Priority:", priority, "Depth:", depth, "Length : ", urlToFind.Length())
-
-				mutex.Lock()
-				webFind[currentURL] = true
-				mutex.Unlock()
-
-				//Process 2 dia bakal nunggu channel url
-				mutex.Lock()
-				links, isFound := getListofLinksMult(targetURL, currentURL, webFind, httpClient)
-				mutex.Unlock()
-
-
-				if isFound {
-					mutex.Lock()
-					*counter += len(links)
-					newPath := append(path, targetURL)
-					result = newPath
-					mutex.Unlock()
-					close(stopChan)
+			}
+			select{
+				default:
+				case <- stopchan:
 					return
-				}
-				appendedItem := []Item{}
-				for _, link := range links {
-					mutex.Lock()
-					if !webFind[link] {
-						mutex.Unlock()
-						newPath := append([]string{}, path...)
-						newPath = append(newPath, link)
-
-						mutex.Lock()
-						pathQueue[link] = newPath
-						webFind[link] = true
-						*counter++
-
-						item := Item{
-							key:      link,
-							depth:    depth + 1,
-							priority: urlToFind.priorityDecision(link),
-						}
-						appendedItem = append(appendedItem, item)
-						mutex.Unlock()
-						urlToFind.Enqueue(link, depth+1)
-					}
-				}
-
-				mutex.Lock()
-				writeFilePrioque("links.txt", appendedItem, currentURL)
-				mutex.Unlock()
-				//Inform sebuah 
 			}
 		}
 	}

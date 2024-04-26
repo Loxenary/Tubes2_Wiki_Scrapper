@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -97,7 +96,7 @@ func processData(){
             path = BFSWithPrioqueue(url, target, &counter)
         } else {
             //visited := make(map[string]bool)
-            path = IDS(url, target, 6)
+            path = IDS(url, target, 6, &counter)
         }
         runtime := time.Since(start)
         writeFile("output.txt",path)

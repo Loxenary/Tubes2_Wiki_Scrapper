@@ -6,7 +6,7 @@ import {
   useWikiSearchContext,
 } from "@/Context/SearchContext";
 import { useContext, useState, ChangeEvent, FormEvent } from "react";
-import { BoolOutputSetup } from "./page";
+import { BoolOutputSetup, ISetupOutputPage } from "@/app/page";
 import { IOutputContext } from "../Output/outputData";
 import { useOutputContext } from "@/Context/OutputContext";
 import { LoadingBar } from "@/app/components/main/loading";
@@ -17,6 +17,8 @@ const EntryWiki = () => {
     FROM: "",
     TO: "",
   });
+
+  const { setOutputState } = useContext<ISetupOutputPage>(BoolOutputSetup);
 
   // Save Data for loading animation logic
   const [isLoading, setisLoading] = useState(false);
@@ -30,14 +32,6 @@ const EntryWiki = () => {
   // Used to control the state of the autocomplete when user click on the input field
   const [isFromAutocompleteOpen, setIsFromAutocompleteOpen] = useState(false);
   const [isToAutocompleteOpen, setIsToAutocompleteOpen] = useState(false);
-
-  // Context for turn on the visibility of the output
-  const SearchContext = useContext(BoolOutputSetup);
-  if (!SearchContext) {
-    showToast("Context not found", "error");
-    return null;
-  }
-  const { setOutputState } = SearchContext;
 
   // used to save the state of current input field
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {

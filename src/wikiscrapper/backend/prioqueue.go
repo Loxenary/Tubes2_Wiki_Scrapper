@@ -163,17 +163,16 @@ func (pq *Prioqueue) Enqueue(key string, depth int) {
         return
     }
     item := Item{key, priority, depth}
-    if(pq.treshold > 0){
-        pq.ReSortList(item)
-        pq.Log("ListOnly")
-        pq.treshold--
-    }else{
-        if(pq.Length() <= 30){
-            pq.treshold++
-            pq.ReSortList(item)
-        }else if(item.priority < 20){
-            pq.ReSortList(item)
+
+    
+    if(pq.Length() > 5000 ){
+        if(priority < 20){
+            pq.ReSortList(item);
+        }else{
+            return;
         }
+    }else {
+        pq.ReSortList(item);
     }
 }
 

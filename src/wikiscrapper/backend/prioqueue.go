@@ -9,20 +9,24 @@ import (
 	"unicode/utf8"
 )
 
+// Target Url Data
 type Target struct{
 	name string
 }
 
+// Item data for comparison
 type Item struct {
     key      string
     priority int
     depth int
 }
 
+// Queue
 type PriorityQueue struct {
     items []Item
 }
 
+// Priority Queue
 type Prioqueue struct {
     treshold int // Used to preserve some Enqueue before declining priorities
     target Target
@@ -30,16 +34,20 @@ type Prioqueue struct {
     sync.Mutex
 }
 
+
+// Length of the Priority Queue
 func (pq *Prioqueue) Length() int {
     return len(pq.pq.items)
 }
 
+// Defined the target url and insert into the prioqueue
 func (pq *Prioqueue) ConstructTarget(target string) {
     var t Target
     t.name = target
     pq.target = t
 }
 
+// Initiate Prioqueue, set target as the url target
 func (pq *Prioqueue) Init(target string) {
     pq.Lock()
     defer pq.Unlock()
@@ -49,7 +57,7 @@ func (pq *Prioqueue) Init(target string) {
 
 }
 
-
+// Compare Two strings using Levenshtein distance algorithm
 func StringCompare(s1, s2 string) int {
     minlengthTreshold := 32
     if len(s1) == 0 {
@@ -92,6 +100,7 @@ func StringCompare(s1, s2 string) int {
     return int(x[lS1])
 }
 
+// Return the lowest of two integers
 func min(a, b int) int {
     if a < b {
         return a
@@ -99,10 +108,15 @@ func min(a, b int) int {
     return b
 }
 
+// Determine the Priority of a key
+// The Lower the distance by StringCompare, the higher the priority
 func (pq *Prioqueue) priorityDecision(key string) int {
     return StringCompare(key, pq.target.name)
 }
 
+
+// Keeping the order of the queue
+// Prioritize by depth, then prioritize by priority
 func(pq *Prioqueue) ReSortList(item Item){
     id := 0
     for i:= 0; i < pq.Length();i++{
@@ -132,6 +146,8 @@ func(pq *Prioqueue) ReSortList(item Item){
         pq.pq.items = append([]Item{}, item)
     }
 }
+
+// Write Prioqueue data onto a file
 func writeFilePrioque(filename string, data []Item, parent string) {
     file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
     if err != nil {
@@ -149,6 +165,8 @@ func writeFilePrioque(filename string, data []Item, parent string) {
 
     //fmt.Println("Links appended to", filename)
 }
+
+// Enqueue a new key and its depth to the queue
 func (pq *Prioqueue) Enqueue(key string, depth int) {
     pq.Lock()
     defer pq.Unlock()
@@ -163,17 +181,16 @@ func (pq *Prioqueue) Enqueue(key string, depth int) {
         return
     }
     item := Item{key, priority, depth}
-    if(pq.treshold > 0){
-        pq.ReSortList(item)
-        pq.Log("ListOnly")
-        pq.treshold--
-    }else{
-        if(pq.Length() <= 30){
-            pq.treshold++
-            pq.ReSortList(item)
-        }else if(item.priority < 20){
-            pq.ReSortList(item)
+
+    //Boundary set
+    if(pq.Length() > 5000 ){
+        if(priority < 20){
+            pq.ReSortList(item);
+        }else{
+            return;
         }
+    }else {
+        pq.ReSortList(item);
     }
 }
 
@@ -189,6 +206,7 @@ func (pq *Prioqueue) Dequeue() (string,int,int) {
     pq.pq.items = pq.pq.items[1:]
     return root.key,root.priority,root.depth
 }
+
 /*
 Display Data of Prioqueue
 Status : Full (Display Full Data)

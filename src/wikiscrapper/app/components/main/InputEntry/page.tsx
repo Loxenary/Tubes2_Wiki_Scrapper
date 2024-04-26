@@ -2,20 +2,11 @@
 
 import ToggleAlgorithm from "./toggleAlgorithm";
 import EntryWiki from "./entryWiki";
-import OutputPage from "../Output/page";
 import { createContext, useState } from "react";
 import { WikiSearchContextProvider } from "@/Context/SearchContext";
-import { OutputContextProvider } from "@/Context/OutputContext";
 
 // Interface used in BoolOutputSetup
-export interface ISetupOutputPage {
-  setOutputState: React.Dispatch<React.SetStateAction<boolean>>;
-}
 
-// Context that have responsibility on Visibility of the output page
-export const BoolOutputSetup = createContext<ISetupOutputPage | undefined>(
-  undefined
-);
 
 const InputEntry = () => {
   

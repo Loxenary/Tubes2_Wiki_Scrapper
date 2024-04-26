@@ -222,8 +222,12 @@ func ignoreLink(link string) bool{
         "/wiki/Talk:",
     }
 
+    if(strings.Contains(link,"%")){
+        return true
+    }
+
     for _, prefix := range ignoreList {
-		if strings.HasPrefix(link, prefix) {
+		if strings.HasPrefix(link, prefix){
 			return true
 		}
 	}

@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"strconv"
 	"sync"
 	"unicode/utf8"
-    "os"
-    "log"
 )
 
 type Target struct{
@@ -26,7 +27,6 @@ type Prioqueue struct {
     treshold int // Used to preserve some Enqueue before declining priorities
     target Target
     pq     PriorityQueue
-
     sync.Mutex
 }
 
@@ -104,35 +104,44 @@ func (pq *Prioqueue) priorityDecision(key string) int {
 }
 
 func(pq *Prioqueue) ReSortList(item Item){
-
     id := 0
     for i:= 0; i < pq.Length();i++{
         temp := pq.pq.items[i]
         if(item.depth > temp.depth){
+            id = i + 1
             continue
         }
 
-        if(item.depth == temp.depth && item.priority < temp.priority){
-            id = i
-            break
+        if(item.depth == temp.depth){
+            if item.priority < temp.priority {
+                id = i
+                break
+            } else {
+                id = i + 1 // Move to the next position
+                continue
+            }
         }else if(item.depth < temp.depth){
             id = i
             break
         }
     }
 
-    pq.pq.items = append(pq.pq.items[:id], append([]Item{item}, pq.pq.items[id:]...)...)
+    if(pq.Length() > 0){
+        pq.pq.items = append(pq.pq.items[:id], append([]Item{item}, pq.pq.items[id:]...)...)
+    }else{
+        pq.pq.items = append([]Item{}, item)
+    }
 }
-func writeFilePrioque(filename string, links []string, depth []string) {
+func writeFilePrioque(filename string, data []Item, parent string) {
     file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
     if err != nil {
         log.Fatal("Error opening file:", err)
     }
     defer file.Close()
 
-    for i, link := range links {
+    for _, link := range data {
         // Write each link to the file
-        _, err := file.WriteString("Link: " +link + " Depth : "+ depth[i] + "\n")
+        _, err := file.WriteString("Link: " +link.key + " Depth : "+ strconv.Itoa(link.depth) + " Priority: "+ strconv.Itoa(link.priority)+ " Parent : " + parent +  "\n")
         if err != nil {
             log.Fatal("Error writing to file:", err)
         }
@@ -154,8 +163,18 @@ func (pq *Prioqueue) Enqueue(key string, depth int) {
         return
     }
     item := Item{key, priority, depth}
-    pq.pq.items = append(pq.pq.items, item)
-    pq.ReSortList(item)
+    if(pq.treshold > 0){
+        pq.ReSortList(item)
+        pq.Log("ListOnly")
+        pq.treshold--
+    }else{
+        if(pq.Length() <= 30){
+            pq.treshold++
+            pq.ReSortList(item)
+        }else if(item.priority < 20){
+            pq.ReSortList(item)
+        }
+    }
 }
 
 //Dequeue The Prio List 
@@ -177,12 +196,14 @@ Status : ListOnly (Display Only The List)
 Status: Length (Dsipaly Only the Length)
 */
 func (pq *Prioqueue) Log(status string){
+    
     if(status == "full"){
         fmt.Println("=====PRIOQUEUE DATA====")
         fmt.Println("Data: ")
         fmt.Println(pq.pq.items)
         fmt.Println("Length: ")
         fmt.Println(len(pq.pq.items))
+        fmt.Println()
 
     }else if(status == "ListOnly"){
         fmt.Println("=====PRIOQUEUE DATA====")

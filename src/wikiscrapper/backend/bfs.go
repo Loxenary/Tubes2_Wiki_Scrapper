@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -173,7 +172,6 @@ func BFSWithChannel(startURL,targetURL string, counter *int) []string{
 }
 
 func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
-	visited := make(map[string]bool)
 	webFind := make(map[string]bool)
 	var urlToFind Prioqueue
 	urlToFind.Init(targetURL)
@@ -183,92 +181,88 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 	var result []string = nil
 	// var linksgroup sync.WaitGroup
 	var mutex sync.Mutex
-	var webtex sync.Mutex
 	// var isResultFound = false
 	var wg sync.WaitGroup
 	num_of_guorotine := 2
 
-	stopchan := make(chan struct{})
+	stopChan := make(chan struct{})
 
 	pathQueue[startURL] = []string{startURL}
 
 	worker := func(workerID int, httpClient *http.Client) {
 		defer wg.Done()
 		for {
-			urlToFind.Log("length")
-			if urlToFind.Length() == 0 {
-				if(len(visited) != 0){
-					fmt.Println("Length is 0 ","Worker: ", workerID)
-					return
-				}
-			}
-			currentURL, priority, depth := urlToFind.Dequeue()
-
-			if(depth == 99){
-				continue
-			}
-
-			mutex.Lock()
-			path := pathQueue[currentURL]
-			mutex.Unlock()
-
-			fmt.Println("Worker:", workerID, "URL TO FIND:", currentURL, "Priority:", priority, "Depth:", depth, "Length : ", urlToFind.Length())
-			
-			if currentURL == targetURL {
-				result = path
-				// isResultFound = true
+			select {
+			case <-stopChan:
 				return
-			}
-			mutex.Lock()
-			if visited[currentURL] {
-				mutex.Unlock()
-				continue
-			}
-
-			visited[currentURL] = true
-			webFind[currentURL] = true
-			mutex.Unlock()
-
-			webtex.Lock()
-			links, isFound := getListofLinksMult(targetURL, currentURL, webFind, httpClient)
-			if isFound {
-				(*counter) += len(links)
-				newPath := append(path, targetURL)
-				result = newPath
-				webtex.Unlock()
-				close(stopchan)
-				return
-			}
-			
-			webtex.Unlock()
-			
-			appendedLink := []string{}
-			appendedDepth := []string{}
-			for _, link := range links {
-				
+			default:
 				mutex.Lock()
-				if !webFind[link] {
-					newDepth := strconv.Itoa(depth + 1)
-					newPath := append([]string{}, path...)
-					newPath = append(newPath, link)
-					pathQueue[link] = newPath
-					webFind[link] = true
-					(*counter)++
-
-					appendedLink = append(appendedLink, link)
-					appendedDepth = append(appendedDepth, newDepth)
-					urlToFind.Enqueue(link, depth + 1)
+				if urlToFind.Length() == 0 {
+					fmt.Println("Length is 0", "Worker: ", workerID)
+					mutex.Unlock()
+					continue
 				}
 				mutex.Unlock()
-			}
 
-			mutex.Lock()
-			writeFilePrioque("links.txt", appendedLink, appendedDepth)
-			mutex.Unlock()
-			select{
-				default:
-				case <- stopchan:
+				currentURL, priority, depth := urlToFind.Dequeue()
+
+				if depth == 99 {
+					continue
+				}
+
+				mutex.Lock()
+				path := pathQueue[currentURL]
+				mutex.Unlock()
+
+				fmt.Println("Worker:", workerID, "URL TO FIND:", currentURL, "Priority:", priority, "Depth:", depth, "Length : ", urlToFind.Length())
+
+				mutex.Lock()
+				webFind[currentURL] = true
+				mutex.Unlock()
+
+				//Process 2 dia bakal nunggu channel url
+				mutex.Lock()
+				links, isFound := getListofLinksMult(targetURL, currentURL, webFind, httpClient)
+				mutex.Unlock()
+
+
+				if isFound {
+					mutex.Lock()
+					*counter += len(links)
+					newPath := append(path, targetURL)
+					result = newPath
+					mutex.Unlock()
+					close(stopChan)
 					return
+				}
+				appendedItem := []Item{}
+				for _, link := range links {
+					mutex.Lock()
+					if !webFind[link] {
+						mutex.Unlock()
+						newPath := append([]string{}, path...)
+						newPath = append(newPath, link)
+
+						mutex.Lock()
+						pathQueue[link] = newPath
+						webFind[link] = true
+						*counter++
+
+						item := Item{
+							key:      link,
+							depth:    depth + 1,
+							priority: urlToFind.priorityDecision(link),
+						}
+						appendedItem = append(appendedItem, item)
+						mutex.Unlock()
+						urlToFind.Enqueue(link, depth+1)
+					}
+				}
+
+				mutex.Lock()
+				writeFilePrioque("links.txt", appendedItem, currentURL)
+				mutex.Unlock()
+				//Inform sebuah 
 			}
 		}
 	}
@@ -317,3 +311,88 @@ func RemovePathFromQueue(queue [][]string, deleted []string) [][]string {
     }
     return nil
 }
+
+// func BFSWithColly(startURL, targetURL string, counter *int) []string {
+// 	c := colly.NewCollector(
+// 		colly.AllowedDomains("en.wikipedia.org"),
+// 		colly.Async(true),
+// 		colly.CacheDir("links.txt"),
+// 	)
+
+// 	// Limit the crawler's speed to avoid hitting Wikipedia servers too hard
+// 	c.Limit(&colly.LimitRule{
+// 		DomainGlob:  "*.wikipedia.org*",
+// 		RandomDelay: 1 * time.Second,
+// 	})
+
+// 	var path []string
+// 	var wg sync.WaitGroup
+// 	var mu sync.Mutex
+
+// 	queue := []string{startURL}
+// 	visited := make(map[string]bool)
+// 	webfind := make(map[string]bool)
+// 	parent := make(map[string]string)
+
+// 	for len(queue) > 0 {
+// 		url := queue[0]
+// 		queue = queue[1:]
+
+// 		wg.Add(1)
+// 		go func(url string) {
+// 			defer wg.Done()
+
+// 			c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+// 				link := e.Attr("href")
+// 				if strings.HasPrefix(link, "/wiki/") {
+// 					if()
+// 					mu.Lock()
+// 					*counter++
+// 					mu.Unlock()
+
+// 					childURL := e.Request.AbsoluteURL(link)
+
+// 					mu.Lock()
+// 					parent[childURL] = url
+// 					mu.Unlock()
+
+// 					if !visited[childURL] {
+// 						visited[childURL] = true
+// 						queue = append(queue, childURL)
+// 					}
+
+// 					mu.Lock()
+// 					path = append(path, childURL)
+// 					mu.Unlock()
+
+// 					if childURL == targetURL {
+// 						fmt.Println("Target URL found!")
+// 						return
+// 					}
+// 				}
+// 			})
+
+// 			c.Visit(url)
+// 		}(url)
+// 	}
+
+// 	wg.Wait()
+
+// 	return getPath(startURL, targetURL, parent)
+// }
+// func getPath(startURL, targetURL string, parent map[string]string) []string {
+// 	path := make([]string, 0)
+// 	curr := targetURL
+
+// 	for curr != startURL {
+// 		path = append([]string{curr}, path...)
+// 		p, ok := parent[curr]
+// 		if !ok || p == "" {
+// 			return nil
+// 		}
+// 		curr = p
+// 	}
+
+// 	path = append([]string{startURL}, path...)
+// 	return path
+// }

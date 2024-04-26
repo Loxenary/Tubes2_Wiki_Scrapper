@@ -50,22 +50,29 @@ const EntryWiki = () => {
   };
 
   const handleGetApi = async() =>{
-    const url = "/api/getData";
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
+    try{
+      const url = "/api/getData";
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      })
+      if(res.status===204){
+        return "null"
       }
-    })
-    if(res.status===204){
-      return "null"
-    }
-    else if(res.status === 200){
-      const output = await res.json();
-      return output
-    }
-    if(!res.ok){
-      throw new Error("Error Fetching");
+      else if(res.status === 200){
+        const output = await res.json();
+        return output
+      }
+      if(!res.ok){
+        throw new Error("Error Fetching");
+      }
+    }catch(err){
+      showToast("Error Fetching","error")
+      setisLoading(false)
+      setOutputState(false)
+      throw err
     }
   }
 
@@ -80,9 +87,8 @@ const EntryWiki = () => {
         return;
       }
       setTimeout(handleBackendPolling,3000);
-      
     }catch(e){
-      throw e;
+      throw e
     }
 
   }

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
-	"github.com/PuerkitoBio/goquery"
 )
 
 //Ini Struct buat nyimpen data input dari web
@@ -96,11 +96,11 @@ func processData(){
         if data.Algorithm == "BFS" {
             path = BFSWithPrioqueue(url, target, &counter)
         } else {
-            visited := make(map[string]bool)
-            path = DLS(url, target, 4, visited)
+            //visited := make(map[string]bool)
+            path = IDS(url, target, 6)
         }
         runtime := time.Since(start)
-    
+        writeFile("output.txt",path)
         // Construct response
         response := Response{
             Checkcount: fmt.Sprint(counter),
@@ -131,80 +131,6 @@ func main() {
     }
 }
 
-
-func getListofLinksMult(targeturl, url string, visited map[string]bool, httpClient *http.Client) ([]string, bool) {
-    url = "https://en.wikipedia.org" + url
-
-    response, err := httpClient.Get(url)
-    if err != nil {
-        log.Fatal("Error fetching URL:", err)
-    }
-    defer response.Body.Close()
-
-    // Parse HTML
-    doc, err := goquery.NewDocumentFromReader(response.Body)
-    if err != nil {
-        log.Fatal("Error parsing HTML:", err)
-    }
-
-    // Extract links
-    var links []string
-    targetFound := false // Flag to indicate if the target URL has been found
-
-    doc.Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
-        // Extract links within the main content area
-        content.Find("a").Each(func(i int, s *goquery.Selection) {
-            // Get the link's href attribute
-            link, exists := s.Attr("href")
-            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
-                // Append the link to the slice
-                links = append(links, link)
-                if link == targeturl {
-                    // If the link matches the target URL, set the flag
-                    targetFound = true
-                    return
-                }
-            }
-        })
-    })
-    return links, targetFound
-}
-func getListofLinks(targeturl, url string, visited map[string]bool) ([]string, bool) {
-    url = "https://en.wikipedia.org" + url
-
-    response, err := http.Get(url)
-    if err != nil {
-        log.Fatal("Error fetching URL:", err)
-    }
-    defer response.Body.Close()
-
-    // Parse HTML
-    doc, err := goquery.NewDocumentFromReader(response.Body)
-    if err != nil {
-        log.Fatal("Error parsing HTML:", err)
-    }
-
-    // Extract links
-    var links []string
-    targetFound := false // Flag to indicate if the target URL has been found
-
-    doc.Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
-        // Extract links within the main content area
-        content.Find("a").Each(func(i int, s *goquery.Selection) {
-            // Get the link's href attribute
-            link, exists := s.Attr("href")
-            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
-                // Append the link to the slice
-                links = append(links, link)
-                if link == targeturl {
-                    // If the link matches the target URL, set the flag
-                    targetFound = true
-                }
-            }
-        })
-    })
-    return links, targetFound
-}
 
 func ignoreLink(link string) bool{
     ignoreList := []string{
@@ -269,12 +195,38 @@ func clearFile(filename string) {
     }
 }
 
-func isin(link string,array []string) bool{
-    for _, item := range array {
-        if item == link {
+func isin(link string, array []string) bool {
+    // Calculate the size of each part
+    partSize := len(array) / 4
+
+    // Channel to receive results
+    found := make(chan bool, 4)
+
+    // Process each part of the array concurrently
+    for i := 0; i < 4; i++ {
+        start := i * partSize
+        end := (i + 1) * partSize
+        if i == 3 {
+            end = len(array) // Ensure the last part includes the remaining elements
+        }
+        go func(arr []string) {
+            for _, item := range arr {
+                if item == link {
+                    found <- true
+                    return
+                }
+            }
+            found <- false
+        }(array[start:end])
+    }
+
+    // Collect results from the channels
+    for i := 0; i < 4; i++ {
+        if <-found {
             return true
         }
     }
+
     return false
 }
 
@@ -284,54 +236,4 @@ func Checker(){
     fmt.Println("is this called??")
 }
   
-
-func IDS(startURL, targetURL string, depthLimit int) []string {
-    for depth := 0; depth <= depthLimit; depth++ {
-		visited := make(map[string]bool)
-		fmt.Println("depth" , depth)
-        path := DLS(startURL, targetURL, depth,visited)
-        if path != nil {
-            return path
-        }
-    }
-	fmt.Println("not found")
-    return nil
-}
-
-
-
-// Function to perform depth-limited search
-func DLS(currentURL, targetURL string, depthLimit int,visited (map[string]bool)) []string {
-    path := []string{currentURL}
-    if depthLimit == 0 {
-        return nil
-    }
-
-    if currentURL == targetURL {
-        return []string{currentURL}
-    }
-
-    if visited[currentURL] {
-        return nil
-    }
-    visited[currentURL] = true
-
-    links,found := getListofLinks(targetURL,currentURL,visited)
-	//var i = 0
-	if found {
-		return append([]string{targetURL},path...)
-		//fmt.Println("we")
-	}
-    for _, link := range links {
-		//fmt.Println("dls loop",i)
-		//i++
-        path := DLS(link, targetURL, depthLimit-1,visited)
-        if path != nil {
-            return append([]string{currentURL}, path...)
-        }
-    }
-
-    return nil
-}
-
 

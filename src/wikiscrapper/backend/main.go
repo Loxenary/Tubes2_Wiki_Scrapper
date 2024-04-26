@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 )
 
 //Ini Struct buat nyimpen data input dari web
@@ -89,16 +88,23 @@ func processData(){
         clearFile("output.txt")
         start := time.Now()
         var path []string
-        counter := int(0)
+        counter := 0
         if data.Algorithm == "BFS" {
             //path = BFSTest(url, target, &counter)
             path = BFS(url,target)
         } else {
             //visited := make(map[string]bool)
-            path = IDS(url, target, 6)
+            //path = IDS(url, target, 6)
+            path = IDS_col(url,target,6,&counter)
         }
         runtime := time.Since(start)
+        if (path == nil){
+            fmt.Println("empty path")
+        }else{
+            fmt.Println(path)
+        }
         writeFile("output.txt",path)
+        
         // Construct response
         response := Response{
             Checkcount: fmt.Sprint(counter),
@@ -112,8 +118,15 @@ func processData(){
         fmt.Println("Data Numpassed: " + response.NumPassed)
         fmt.Println("Data Time: " + response.Time)
         fmt.Println("Data ListPath: ")
+        if (response.ListPath == nil){
+            fmt.Println("empty list")
+        }
         for i := 0; i < len(response.ListPath); i++ {
-            fmt.Println(response.ListPath[i].Item)
+            if (len(response.ListPath) != 0){
+                fmt.Println(response.ListPath[i].Item)
+            }else{
+                fmt.Println("flag empty list")
+            }
         }
         OutputData <- response
     }
@@ -146,6 +159,12 @@ func ignoreLink(link string) bool{
         "/wiki/Talk:",
     }
 
+    if strings.ContainsAny(link,"%"){
+        return true;
+    }
+    if strings.ContainsAny(link,"#"){
+        return true;
+    }
     for _, prefix := range ignoreList {
 		if strings.HasPrefix(link, prefix) {
 			return true

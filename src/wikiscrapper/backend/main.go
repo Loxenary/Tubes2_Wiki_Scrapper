@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -30,9 +29,12 @@ type Response struct {
     ListPath []Path `json:"listPath"`
 }
 
-var UrlData = make(chan Data, 1)
-var OutputData = make(chan Response, 1)
-var StatusCode = make(chan int, 1)
+
+//Global Variable
+var UrlData = make(chan Data, 1) //Global variable for storing post data
+var OutputData = make(chan Response, 1) //Global variable for storing an algorithmn response
+
+// API Post Request Handler
 func postDataHandler(w http.ResponseWriter, r *http.Request){
 	if r.Method != "POST"{
 		http.Error(w,  "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -54,7 +56,7 @@ func postDataHandler(w http.ResponseWriter, r *http.Request){
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode([]byte{})
 }
-
+// API Get Request Handler
 func getDataHandler(w http.ResponseWriter, r *http.Request){
     if(r.Method != "GET"){
         http.Error(w,  "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -69,6 +71,8 @@ func getDataHandler(w http.ResponseWriter, r *http.Request){
     }
 }
 
+
+// Convert from []string into []Path
 func PathConverter(str []string) [] Path{
     var paths []Path
     for i :=0; i < len(str); i++ {
@@ -77,6 +81,7 @@ func PathConverter(str []string) [] Path{
     return paths
 }
 
+// Process Data From Frontend to Backend and return The result back
 func processData(){
     for{
         data :=<- UrlData
@@ -86,6 +91,7 @@ func processData(){
         // Process data...
         clearFile("links.txt")
         clearFile("output.txt")
+
         start := time.Now()
         var path []string
         counter := int(0)
@@ -116,9 +122,13 @@ func processData(){
         for i := 0; i < len(response.ListPath); i++ {
             fmt.Println(response.ListPath[i].Item)
         }
+        clearFile("links.txt")
+        clearFile("output.txt")
         OutputData <- response
     }
 }
+
+//Main Function
 func main() {
     
     go processData()
@@ -131,36 +141,7 @@ func main() {
 }
 
 
-func ignoreLink(link string) bool{
-    ignoreList := []string{
-        "/wiki/File:" ,
-        "/wiki/Help:" ,
-        "/wiki/Special:" ,
-        "/wiki/Template:" ,
-        "/wiki/Template_Talk:" ,
-        "/wiki/Template_talk:" ,
-        "/wiki/Wikipedia:" ,
-        "/wiki/Category:",
-        "/wiki/Portal:" ,
-        "/wiki/User:" ,
-        "/wiki/User_Talk:" ,
-        "/wiki/Talk:",
-    }
-
-    if(strings.Contains(link,"%")){
-        return true
-    }
-
-    for _, prefix := range ignoreList {
-		if strings.HasPrefix(link, prefix){
-			return true
-		}
-	}
-	return false
-}
-
-
-
+//Write links into file named filename. Used as debug
 func writeFile(filename string, links []string) {
     file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
     if err != nil {
@@ -179,6 +160,7 @@ func writeFile(filename string, links []string) {
     //fmt.Println("Links appended to", filename)
 }
 
+//Used to clear all the data inside the filename
 func clearFile(filename string) {
     // Open the file with write-only mode and truncate it (clear content)
     file, err := os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC, 0644)
@@ -194,43 +176,7 @@ func clearFile(filename string) {
     }
 }
 
-func isin(link string, array []string) bool {
-    // Calculate the size of each part
-    partSize := len(array) / 4
-
-    // Channel to receive results
-    found := make(chan bool, 4)
-
-    // Process each part of the array concurrently
-    for i := 0; i < 4; i++ {
-        start := i * partSize
-        end := (i + 1) * partSize
-        if i == 3 {
-            end = len(array) // Ensure the last part includes the remaining elements
-        }
-        go func(arr []string) {
-            for _, item := range arr {
-                if item == link {
-                    found <- true
-                    return
-                }
-            }
-            found <- false
-        }(array[start:end])
-    }
-
-    // Collect results from the channels
-    for i := 0; i < 4; i++ {
-        if <-found {
-            return true
-        }
-    }
-
-    return false
-}
-
-
-
+// Used as Checker
 func Checker(){
     fmt.Println("is this called??")
 }

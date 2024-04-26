@@ -6,7 +6,7 @@ import {
   useWikiSearchContext,
 } from "@/Context/SearchContext";
 import { useContext, useState, ChangeEvent, FormEvent } from "react";
-import { BoolOutputSetup } from "./page";
+import { BoolOutputSetup, ISetupOutputPage } from "@/app/page";
 import { IOutputContext } from "../Output/outputData";
 import { useOutputContext } from "@/Context/OutputContext";
 import { LoadingBar } from "@/app/components/main/loading";
@@ -17,6 +17,8 @@ const EntryWiki = () => {
     FROM: "",
     TO: "",
   });
+
+  const { setOutputState } = useContext<ISetupOutputPage>(BoolOutputSetup);
 
   // Save Data for loading animation logic
   const [isLoading, setisLoading] = useState(false);
@@ -31,14 +33,6 @@ const EntryWiki = () => {
   const [isFromAutocompleteOpen, setIsFromAutocompleteOpen] = useState(false);
   const [isToAutocompleteOpen, setIsToAutocompleteOpen] = useState(false);
 
-  // Context for turn on the visibility of the output
-  const SearchContext = useContext(BoolOutputSetup);
-  if (!SearchContext) {
-    showToast("Context not found", "error");
-    return null;
-  }
-  const { setOutputState } = SearchContext;
-
   // used to save the state of current input field
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { id, value } = event.target;
@@ -50,22 +44,29 @@ const EntryWiki = () => {
   };
 
   const handleGetApi = async() =>{
-    const url = "/api/getData";
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
+    try{
+      const url = "/api/getData";
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      })
+      if(res.status===204){
+        return "null"
       }
-    })
-    if(res.status===204){
-      return "null"
-    }
-    else if(res.status === 200){
-      const output = await res.json();
-      return output
-    }
-    if(!res.ok){
-      throw new Error("Error Fetching");
+      else if(res.status === 200){
+        const output = await res.json();
+        return output
+      }
+      if(!res.ok){
+        throw new Error("Error Fetching");
+      }
+    }catch(err){
+      showToast("Error Fetching","error")
+      setisLoading(false)
+      setOutputState(false)
+      throw err
     }
   }
 
@@ -80,9 +81,8 @@ const EntryWiki = () => {
         return;
       }
       setTimeout(handleBackendPolling,3000);
-      
     }catch(e){
-      throw e;
+      throw e
     }
 
   }

@@ -7,9 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
-
 )
 
 //Ini Struct buat nyimpen data input dari web
@@ -34,6 +32,7 @@ type Response struct {
 
 var UrlData = make(chan Data, 1)
 var OutputData = make(chan Response, 1)
+var StatusCode = make(chan int, 1)
 func postDataHandler(w http.ResponseWriter, r *http.Request){
 	if r.Method != "POST"{
 		http.Error(w,  "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -72,7 +71,7 @@ func getDataHandler(w http.ResponseWriter, r *http.Request){
 
 func PathConverter(str []string) [] Path{
     var paths []Path
-    for i := len(str) - 1; i >= 0; i-- {
+    for i :=0; i < len(str); i++ {
         paths = append(paths, Path{str[i]})
     }
     return paths
@@ -90,12 +89,14 @@ func processData(){
         start := time.Now()
         var path []string
         counter := int(0)
+
+        // Used to Inform the Frontend about current state of the program
+        
         if data.Algorithm == "BFS" {
-            //path = BFSTest(url, target, &counter)
-            path = BFS(url,target)
+            path = BFSWithPrioqueue(url, target, &counter)
         } else {
             //visited := make(map[string]bool)
-            path = IDS(url, target, 6)
+            path = IDS(url, target, 6, &counter)
         }
         runtime := time.Since(start)
         writeFile("output.txt",path)
@@ -146,13 +147,18 @@ func ignoreLink(link string) bool{
         "/wiki/Talk:",
     }
 
+    if(strings.Contains(link,"%")){
+        return true
+    }
+
     for _, prefix := range ignoreList {
-		if strings.HasPrefix(link, prefix) {
+		if strings.HasPrefix(link, prefix){
 			return true
 		}
 	}
 	return false
 }
+
 
 
 func writeFile(filename string, links []string) {
@@ -225,166 +231,8 @@ func isin(link string, array []string) bool {
 
 
 
-func FindCorrectPath(currentUrl string,queue [][]string) []string{
-    for _, path := range queue {
-        if path[len(path)-1] == currentUrl {
-            // If the last element of the path matches currentURL, return the path
-            return path
-        } 
-        
-    }
-    return nil
-}
-
-func RemovePathFromQueue(queue [][]string, deleted []string) [][]string {
-    // Find deleted index 
-    
-    for i, path := range queue {
-        if(len(path) > 0 && len(deleted) > 0){
-            if path[len(path)-1] == deleted[len(deleted)-1] {
-                newQueue := [][]string{}
-                for j, linkPath := range queue{
-                    if(i != j){
-                        newQueue = append(newQueue, linkPath)
-                    }
-                }
-                return newQueue
-            }
-        }
-    }
-    return nil
-}
-
-func BFSTest(startURL, targetURL string, counter *int) []string {
-    visited := make(map[string]bool)
-    webFind := make(map[string]bool)
-    var urlToFind Prioqueue
-    urlToFind.Init(targetURL)
-    urlToFind.Enqueue(startURL)
-    var pathQueue = [][]string{{startURL}}
-    for(urlToFind.Length()> 0){    
-        currentUrl, priority := urlToFind.Dequeue()
-        fmt.Println("URL TO FIND: ", currentUrl, "Priority : ",priority)
-        path := FindCorrectPath(currentUrl, pathQueue)
-        if(currentUrl == targetURL){
-            return path
-        }
-
-        if(visited[currentUrl]){
-            continue
-        }
-        visited[currentUrl] = true
-
-        webFind[currentUrl] = true
-        links, isFound := getListofLinks2(targetURL,currentUrl/*,webFind*/)
-        
-        if(isFound){
-            (*counter) += len(links)
-            path := append(path, targetURL)
-            
-            return path
-        }
-        appendedLink := []string{}
-        for _, link := range links {
-            if(!webFind[link]){
-                (*counter)++
-                newPath := append([]string{}, path...)
-                newPath = append(newPath, link)
-                pathQueue = append(pathQueue, newPath)
-                urlToFind.Enqueue(link)
-                appendedLink = append(appendedLink,link)
-                webFind[link] = true
-            }
-        }
-        writeFile("links.txt",appendedLink)
-        pathQueue = RemovePathFromQueue(pathQueue, path)
-    }
-    return nil
-}
-
 func Checker(){
     fmt.Println("is this called??")
-}
-func BFS(startURL, targetURL string) []string {
-    visited := make(map[string]bool)
-    queue := [][]string{{startURL}}
-    for len(queue) > 0 {
-        path := queue[0]
-        queue = queue[1:]
-        currentURL := path[len(path)-1]
-
-        // Check if the target URL is reached
-        if currentURL == targetURL {
-            return path
-        }
-        if visited[currentURL] {
-            continue
-        }
-        visited[currentURL] = true
-
-        // Get links from the current URL
-        //println("flag")
-        links,found := getListofLinks2(targetURL,currentURL/*,visited*/)
-		if found {
-            reversedPath := make([]string, len(path))
-            for i := range path {
-                reversedPath[i] = path[len(path)-1-i]
-            }
-			return append([]string{targetURL}, reversedPath...)
-		}
-        // Add new paths to the queue
-        for _, link := range links {
-            if !visited[link] {
-                newPath := append([]string{}, path...)
-                newPath = append(newPath, link)
-                queue = append(queue, newPath)
-            }
-        }
-        //fmt.Println(queue)
-    }
-    return nil // Target article not found
-}
-
-func BFScon(startURL, targetURL string) []string {
-    visited := make(map[string]bool)
-    queue := [][]string{{startURL}}
-    for len(queue) > 0 {
-        path := queue[0]
-        queue = queue[1:]
-        currentURL := path[len(path)-1]
-
-        // Check if the target URL is reached
-        if currentURL == targetURL {
-            return path
-        }
-        if visited[currentURL] {
-            continue
-        }
-        visited[currentURL] = true
-
-        // Get links from the current URL
-        //println("flag")
-        links,found := getListofLinks2(targetURL,currentURL/*,visited*/)
-		if found {
-			return append(path,targetURL)
-		}
-        // Add new paths to the queue
-        var wg sync.WaitGroup
-        for _, link := range links {
-            wg.Add(1)
-            go func(link string, path []string) {
-                defer wg.Done()
-                if !visited[link] {
-                    newPath := append([]string{}, path...)
-                    newPath = append(newPath, link)
-                    queue = append(queue, newPath)
-                }
-            }(link,path)
-        }
-        wg.Wait() 
-        //fmt.Println(queue)
-    }
-    return nil // Target article not found
 }
   
 

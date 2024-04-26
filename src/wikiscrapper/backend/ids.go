@@ -1,10 +1,7 @@
 package main
 
 import (
-	//"bufio"
 	"fmt"
-	//"os"
-	//"strings"
 	"sync"
 	"time"
 )
@@ -34,23 +31,20 @@ func (sm *SafeMap) Get(key string) bool {
 }
 
 
-
-var end bool = false
 var count int
 var visited SafeMap
 
-func IDS(startURL, targetURL string, depthLimit int) []string {
+func IDS(startURL, targetURL string, depthLimit int, counter *int) []string {
 	
-	end = false
-	for depth := 0; depth <= depthLimit; depth++{
+	var mutex sync.Mutex
+	var path []string
+	for depth := 2; depth <= depthLimit; depth++{
 		visited = *NewSafeMap()
-		count = 0
-		if end {break}
 		//visited := make(map[string]bool)
 		fmt.Println("depth",depth)
 		start := time.Now()
 		//path := DLS(startURL, targetURL, depth,visited)
-		path := DLS1(startURL, targetURL, depth,visited)
+		path = DLS1(startURL, targetURL, depth, &visited, &mutex, counter)
 		fmt.Println("waktu DLS",depth,":",time.Since(start))
 		fmt.Println(path)
 		if path != nil {
@@ -65,16 +59,9 @@ func IDS(startURL, targetURL string, depthLimit int) []string {
 	return nil
 }
 
-func DLS1(currentURL, targetURL string, depthLimit int, visited SafeMap) []string {
-    // Make a copy of the visited map
-    localVisited := SafeMap{visited: make(map[string]bool)}
-    for key, value := range visited.visited {
-        localVisited.visited[key] = value
-    }
+func DLS1(currentURL, targetURL string, depthLimit int, visited *SafeMap, mutex *sync.Mutex, counter *int) []string {
 
-    //fmt.Println("DLS", currentURL, "Depth :", depthLimit)
-
-    if localVisited.Get(currentURL) {
+    if visited.Get(currentURL) {
         fmt.Println("flag visited")
         return nil
     }
@@ -90,9 +77,14 @@ func DLS1(currentURL, targetURL string, depthLimit int, visited SafeMap) []strin
     if depthLimit == 1 {
         return nil
     }
-    localVisited.Set(currentURL, true)
-    count++
-    links, found := getListofLinks1(targetURL, currentURL, localVisited)
+    visited.Set(currentURL, true)
+
+	mutex.Lock()
+	(*counter)++
+	mutex.Unlock()
+
+    links, found := getListofLinks1(targetURL, currentURL, *visited)
+
     if found {
 		fmt.Println("found target from",currentURL)
         return []string{currentURL, targetURL}
@@ -101,51 +93,27 @@ func DLS1(currentURL, targetURL string, depthLimit int, visited SafeMap) []strin
     }
 
     var wg sync.WaitGroup
-    resultChan := make(chan []string)
-    sem := make(chan struct{}, 30)
 
     for _, link := range links {
-        if end {
-            fmt.Println("end")
-            break
-        }
-        sem <- struct{}{}
+    
         wg.Add(1)
-        go func(link string) {
-            defer func() {
-                <-sem // release semaphore
-				//fmt.Println("sem left:",len(sem))
-                wg.Done()
-            }()
-            subPath := DLS1(link, targetURL, depthLimit-1, localVisited)
+        worker := func(link string)[]string {
+            defer wg.Done()
+            subPath := DLS1(link, targetURL, depthLimit-1, visited, mutex, counter)
             if subPath != nil {
                 writeFile("output.txt", append([]string{"output subpath :",currentURL}, subPath...))
-				fmt.Println("subPath from ",currentURL,":",subPath)
-				fmt.Println("end :",end)
-				end = true
-                resultChan <- append([]string{currentURL}, subPath...)
-				
-                
+				return append([]string{currentURL}, subPath...)
             }
+			return nil
         }(link)
-    }
 
-    go func() {
-        wg.Wait()
-		//fmt.Println("closing resultchan")
-        close(resultChan)
-    }()
-    select {
-    case path := <-resultChan:
-        if path != nil {
-			//fmt.Println("flag return")
-            return path
-        }
-    default:
-		fmt.Println("no path recieved from",currentURL)
-        // If no path received, continue
+		if(worker != nil){
+			fmt.Println("TESTESTEST")  
+			return worker
+		}
     }
-
+	wg.Wait()
+		
     return nil
 }
 

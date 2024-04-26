@@ -131,7 +131,8 @@ func getListofLinks1(targeturl, url string, visited SafeMap) ([]string, bool) {
 		}
 	}
 
-	//writeFile("links.txt", allLinks)
+
+	writeFile("links.txt", allLinks)
 	return allLinks, targetFound
 }
 
@@ -174,3 +175,42 @@ func getListofLinks2(targeturl, url string) ([]string, bool) {
     return links, targetFound
 }
 
+func getListofLinksMult(targeturl, url string, visited map[string]bool, httpClient *http.Client) ([]string, bool) {
+    url = "https://en.wikipedia.org" + url
+
+    response, err := httpClient.Get(url)
+    if err != nil {
+        log.Fatal("Error fetching URL:", err)
+    }
+    defer response.Body.Close()
+
+    // Parse HTML
+    doc, err := goquery.NewDocumentFromReader(response.Body)
+    if err != nil {
+        log.Fatal("Error parsing HTML:", err)
+    }
+
+    // Extract links
+    var links []string
+    targetFound := false // Flag to indicate if the target URL has been found
+
+    doc.Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
+        // Extract links within the main content area
+        content.Find("a").Each(func(i int, s *goquery.Selection) {
+            // Get the link's href attribute
+            link, exists := s.Attr("href")
+            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
+                // Append the link to the slice
+                links = append(links, link)
+                if link == targeturl {
+                    // If the link matches the target URL, set the flag
+                    targetFound = true
+                    //return
+                }
+            }
+        })
+    })
+
+    //writeFile("links.txt", links)
+    return links, targetFound
+}

@@ -205,7 +205,7 @@ func getListofLinks2(targeturl, url string) ([]string, bool) {
     return links, targetFound
 }
 
-func getListofLinksMult(targeturl, url string, visited map[string]bool, httpClient *http.Client) ([]string, bool) {
+func getListofLinksMult(targeturl, url string, httpClient *http.Client) ([]string, bool) {
     url = "https://en.wikipedia.org" + url
 
     response, err := httpClient.Get(url)
@@ -229,7 +229,7 @@ func getListofLinksMult(targeturl, url string, visited map[string]bool, httpClie
         content.Find("a").Each(func(i int, s *goquery.Selection) {
             // Get the link's href attribute
             link, exists := s.Attr("href")
-            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
+            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !strings.ContainsAny(link, "#") {
                 // Append the link to the slice
                 links = append(links, link)
                 if link == targeturl {

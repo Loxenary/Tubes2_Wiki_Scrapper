@@ -182,12 +182,35 @@ func (pq *Prioqueue) Enqueue(key string, depth int) {
     }
     item := Item{key, priority, depth}
 
+    if(depth == 2 && pq.Length() < 10000){
+        pq.ReSortList(item);
+    }
+
     //Boundary set
-    if(pq.Length() > 500){
-        if(priority < 16){
+    if(pq.Length() < 5000 && pq.Length() > 500){
+        if(priority < 20){
             pq.ReSortList(item);
         }else{
             return;
+        }
+    }else if(pq.Length() < 10000 && pq.Length() > 5000){
+        if(priority < 16){
+            pq.ReSortList(item);
+        }else{
+            return
+        }
+    
+    }else if(pq.Length() > 10000 && pq.Length() < 30000){
+        if(priority < 14){
+            pq.ReSortList(item);
+        }else{
+            return
+        }
+    }else if(pq.Length() > 30000){
+        if(priority < 13){
+            pq.ReSortList(item);
+        } else{
+            return
         }
     }else {
         pq.ReSortList(item);

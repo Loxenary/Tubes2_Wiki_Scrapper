@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
-	"time"
 )
 
 
@@ -30,7 +29,7 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 	var wg sync.WaitGroup
 
 	// The amount of goroutines that works
-	num_of_guorotine := 10
+	num_of_guorotine := 100
 
 	// Signal to stop all goroutines
 	stopchan := make(chan struct{})
@@ -67,9 +66,8 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 			webFind[currentURL] = true
 			mutex.Unlock()
 
-			mutex.Lock()
-			links, isFound := getListofLinksMult(targetURL, currentURL, webFind, httpClient)
-			mutex.Unlock()
+			links, isFound := getListofLinksMult(targetURL, currentURL,httpClient)
+
 
 			mutex.Lock()
 			if isFound {
@@ -106,7 +104,7 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 
 	for i := 0; i < num_of_guorotine; i++ {
 		clients[i] = &http.Client{
-			Timeout: 10 * time.Second,
+			CheckRedirect: http.DefaultClient.CheckRedirect,
 		}
 	}
 	wg.Add(num_of_guorotine)

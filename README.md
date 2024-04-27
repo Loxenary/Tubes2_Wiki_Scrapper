@@ -10,7 +10,7 @@ This project aimed at fulfilling the requirements for Big Task 2 of Algorithm St
 ### BFS
 Algoritma BFS yang kami implementasikan menggunakan sebuah priority queue dalam melakukan perhitungannya hal ini kami lakukan agar sekiranya dapat menemukan node yang coock terlebih dahulu antara url saat ini dengan target sehingga perhitungan menjadil lebih sedikit. Kami menggunakan string matching sebagai prioritasnya dimana semakin mirip target dengan current url makan semakin tinggi prioritasnya
 ### IDS 
-Algoritma IDS yang kami implementasikan menggunakan sebuah library bernama go colly untuk melakukan scraping web secara cepat. Algoritma IDS yang di implementasikan akan melakukan iterasi sejumlah dengan depth limit yang kami tentukan dimana untuk tiap iterasinya, depth yang akan dicar oleh program akan meningkat seiring berjalannya waktu.
+Algoritma IDS yang kami implementasikan akan melakukan iterasi sebanyak depth_limit yang kami tentukan sendiri. Kami membatasi depth_limit kami 6 karena kami mengasumsikan depth terjauh adalah 6. Untuk tiap iterasi tersebut kami akan melakukan scraping untuk nodes hingga depth saat itu hingga target url dapat ditemukan. Jika blm ditemukan iterasi akan dilanjutkan dengan depth ditambah 1.
 ## Setup Project
 
 ### Requirements

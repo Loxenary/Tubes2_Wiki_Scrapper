@@ -8,7 +8,7 @@ interface ISinglePath extends PathInterface{
 
 const SinglePath: React.FC<ISinglePath> = ({ index, item }) => (
   <div className="flex flex-row gap-5 items-center text-xl my-5">
-    <div className="w-10 h-10 bg-gray-300 items-center flex justify-center rounded-full">
+    <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to bg-cyan-500 items-center flex justify-center rounded-full">
       {index}
     </div>
     <h1 className="">{item}</h1>

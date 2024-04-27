@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Call the stop script
-./stop.bat
+# Run the Go backend
+cd wikiscrapper/backend
+go run main.go prioqueue.go bfs.go ids.go safemap.go crawler.go links_util.go &
 
-# Change the file below to main.go once it's ready
-gnome-terminal --working-directory=wikiscrapper/backend -e "go run main.go prioqueue.go bfs.go links.go ids.go safemap.go"
-gnome-terminal --working-directory=wikiscrapper -e "npm run dev"
+# Run the Node.js frontend
+cd ../
+npm run dev

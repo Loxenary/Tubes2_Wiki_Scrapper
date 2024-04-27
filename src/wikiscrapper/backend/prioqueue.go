@@ -2,9 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"strconv"
 	"sync"
 	"unicode/utf8"
 )
@@ -146,26 +143,6 @@ func(pq *Prioqueue) ReSortList(item Item){
         pq.pq.items = append([]Item{}, item)
     }
 }
-
-// Write Prioqueue data onto a file
-func writeFilePrioque(filename string, data []Item, parent string) {
-    file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-    if err != nil {
-        log.Fatal("Error opening file:", err)
-    }
-    defer file.Close()
-
-    for _, link := range data {
-        // Write each link to the file
-        _, err := file.WriteString("Link: " +link.key + " Depth : "+ strconv.Itoa(link.depth) + " Priority: "+ strconv.Itoa(link.priority)+ " Parent : " + parent +  "\n")
-        if err != nil {
-            log.Fatal("Error writing to file:", err)
-        }
-    }
-
-    //fmt.Println("Links appended to", filename)
-}
-
 // Enqueue a new key and its depth to the queue
 func (pq *Prioqueue) Enqueue(key string, depth int) {
     pq.Lock()

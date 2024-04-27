@@ -53,12 +53,14 @@ func DLS(currentURL, targetURL string, depthLimit int, visited *SafeMap, mutex *
 		return []string{currentURL}
 	}
 
+	fmt.Println("Current URL: ",currentURL, " depth: ",depthLimit);
+
 	visited.Set(currentURL, true)
 	mutex.Lock()
 	(*counter)++
 	mutex.Unlock()
 
-	links, found := getListofLinks1(targetURL, currentURL, *visited)
+	links, found := LinksProcessor(targetURL, currentURL)
 
 	if found {
 		fmt.Println("found target from", currentURL)
@@ -76,7 +78,6 @@ func DLS(currentURL, targetURL string, depthLimit int, visited *SafeMap, mutex *
 			defer wg.Done()
 			subPath := DLS(link, targetURL, depthLimit-1, visited, mutex, counter)
 			if subPath != nil {
-				writeFile("output.txt", append([]string{"output subpath :", currentURL}, subPath...))
 				return append([]string{currentURL}, subPath...)
 			}
 			return nil

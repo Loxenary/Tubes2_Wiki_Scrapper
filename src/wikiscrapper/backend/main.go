@@ -105,7 +105,13 @@ func processData(){
             path = IDS(url, target, 6, &counter)
         }
         runtime := time.Since(start)
+        if (path == nil){
+            fmt.Println("empty path")
+        }else{
+            fmt.Println(path)
+        }
         writeFile("output.txt",path)
+        
         // Construct response
         response := Response{
             Checkcount: fmt.Sprint(counter),
@@ -119,8 +125,15 @@ func processData(){
         fmt.Println("Data Numpassed: " + response.NumPassed)
         fmt.Println("Data Time: " + response.Time)
         fmt.Println("Data ListPath: ")
+        if (response.ListPath == nil){
+            fmt.Println("empty list")
+        }
         for i := 0; i < len(response.ListPath); i++ {
-            fmt.Println(response.ListPath[i].Item)
+            if (len(response.ListPath) != 0){
+                fmt.Println(response.ListPath[i].Item)
+            }else{
+                fmt.Println("flag empty list")
+            }
         }
         clearFile("links.txt")
         clearFile("output.txt")

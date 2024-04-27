@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef } from "react";
-import DefaultImage from "../public/switch-body-light.png";
+import ToggleImage from "@/public/image/grad1.png"
+import DefaultImage from "@/public/image/grad2.png"
 import { StaticImageData } from "next/image";
 
 interface BackgroundOptions {
@@ -28,8 +29,8 @@ const ToggleSlider: React.FC<ToggleSliderProps> = ({
   const [isToggled, setIsToggled] = useState(defaultValue);
 
   const defaultBackground = {
-    default: "bg-blue-gray-400",
-    toggled: "bg-green-400",
+    default: DefaultImage,
+    toggled: ToggleImage,
   };
 
   const toggle = () => {
@@ -54,7 +55,7 @@ const ToggleSlider: React.FC<ToggleSliderProps> = ({
     <>
       <button
         style={{ height: `${height}px`, width: `${width}px` }}
-        className={`border-2 border-gray-600  rounded-full bg-gray-700  relative cursor-pointer overflow-hidden`}
+        className={`border-2 border-[#2A0E61] rounded-full bg-gray-700  relative cursor-pointer overflow-hidden`}
         onClick={toggle}
       >
         {background ? (

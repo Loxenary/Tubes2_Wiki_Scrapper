@@ -1,7 +1,7 @@
 "use client";
 import ToggleSlider from "@/app/components/main/toggleSlider";
-import DefaultImage from "@/public/switch-body-light.png";
-import ToggledImage from "@/public/switch-body-dark.png";
+import ToggleImage from "@/public/image/grad1.png";
+import DefaultImage from "@/public/image/grad2.png";
 import {SearchWikiInterface,useWikiSearchContext } from "@/Context/SearchContext";
 
 const ToggleAlgorithm = () => {
@@ -22,7 +22,7 @@ const ToggleAlgorithm = () => {
         width={120}
         background={{
           default: DefaultImage,
-          toggled: ToggledImage,
+          toggled: ToggleImage,
         }}
         onChange={OnSliderChange}
       ></ToggleSlider>

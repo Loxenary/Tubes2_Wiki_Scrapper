@@ -6,32 +6,34 @@ import (
 	"time"
 )
 
-var visited SafeMap
 
-// Performing Iterative Depth search concurrently
+
+// IDS
 func IDS(startURL, targetURL string, depthLimit int, counter *int) []string {
 
 	var mutex sync.Mutex
-	var path []string
+	var path []string // Variable penyimpanan path yang dicari
 
-	if startURL == targetURL {
+	if startURL == targetURL { // Apabila startURL == targetURL maka selesai
 		return []string{startURL}
-	} else if depthLimit <= 0 {
+	} else if depthLimit <= 1 { // Error Handling , Jika depth == 1 berarti mengecek apakah start == target karena sudah dicek maka return nil)
 		return nil
 	}
-	for depth := 2; depth <= depthLimit; depth++ {
+	for depth := 2; depth <= depthLimit; depth++ { //mulai loop dari depth == 2 karena depth 1 sudah dicek dan depth < 1 -> nil
+ 
+		// Membuat SafeMap baru pada setiap loop
+		visited := *NewSafeMap()
 
-		// Create new map cacher
-		visited = *NewSafeMap()
+
 		fmt.Println("depth", depth)
 
-		// Start Timer
+		// Start Timer untuk dls melihat waktu yang diperlukan setiap depth
 		start := time.Now()
 
 		path = DLS(startURL, targetURL, depth,&visited, &mutex, counter)
-		fmt.Println("DLS Time", depth, ":", time.Since(start))
-		fmt.Println(path)
-		if path != nil {
+		fmt.Println("DLS Time", depth, ":", time.Since(start)) // Output runtime depth ke-depth
+		fmt.Println(path) 
+		if path != nil { //Apabila path != []
 			return path
 		}
 		fmt.Println("Not Found")
@@ -41,10 +43,10 @@ func IDS(startURL, targetURL string, depthLimit int, counter *int) []string {
 	return nil
 }
 
-// Performing Depth limited search concurrently
+// DLS concurrent
 func DLS(currentURL, targetURL string, depthLimit int, visited *SafeMap, mutex *sync.Mutex, counter *int) []string {
 
-	if visited.Get(currentURL) {
+	if visited.Get(currentURL) { // Mengecek apakah sudah dikunjungi (nil jika sudah)
 		fmt.Println("flag visited")
 		return nil
 	}
@@ -53,33 +55,33 @@ func DLS(currentURL, targetURL string, depthLimit int, visited *SafeMap, mutex *
 		return []string{currentURL}
 	}
 
-	visited.Set(currentURL, true)
+	visited.Set(currentURL, true) // Mengset dikunjungi -> true
 	mutex.Lock()
-	(*counter)++
+	(*counter)++ // Menambah jumlah article yang dikunjungi
 	mutex.Unlock()
 
-	links, found := getListofLinks1(targetURL, currentURL, *visited)
+	links, found := getListofLinks1(targetURL, currentURL, *visited) // Mengambil URL dari currentURL
 
 	if found {
 		fmt.Println("found target from", currentURL)
-		return []string{currentURL, targetURL}
-	} else if !found && depthLimit == 2 {
+		return []string{currentURL, targetURL} 
+	} else if !found && depthLimit == 2 {  // Karena selanjutnya depth == depthLimit -1 == 1 , dan dalam links tidak ada target maka nil
 		return nil
 	}
 
-	var wg sync.WaitGroup
+	// variable wait group untuk DLS selanjutnya
+	var wg sync.WaitGroup 
 
-	for _, link := range links {
+	for _, link := range links { //loop dari URL yang didapat, dimulai dari yang paling awal 
 
-		wg.Add(1)
-		worker := func(link string) []string {
+		wg.Add(1) 
+		worker := func(link string) []string { //Menambah go routine
 			defer wg.Done()
-			subPath := DLS(link, targetURL, depthLimit-1, visited, mutex, counter)
+			subPath := DLS(link, targetURL, depthLimit-1, visited, mutex, counter) //Recursive
 			if subPath != nil {
-				writeFile("output.txt", append([]string{"output subpath :", currentURL}, subPath...))
-				return append([]string{currentURL}, subPath...)
+				return append([]string{currentURL}, subPath...) // Mengembalikan [currentURL,hasil DLS...]
 			}
-			return nil
+			return nil //jika hasil DLS []
 		}(link)
 
 		if worker != nil {

@@ -94,24 +94,15 @@ func processData(){
 
         start := time.Now()
         var path []string
-<<<<<<< HEAD
-        counter := 0
-=======
         counter := int(0)
 
         // Used to Inform the Frontend about current state of the program
         
->>>>>>> 7a1cff5a99f5f8765452f9c09d5c93e6a1a2cd0f
         if data.Algorithm == "BFS" {
             path = BFSWithPrioqueue(url, target, &counter)
         } else {
             //visited := make(map[string]bool)
-<<<<<<< HEAD
-            //path = IDS(url, target, 6)
-            path = IDS_col(url,target,6,&counter)
-=======
             path = IDS(url, target, 6, &counter)
->>>>>>> 7a1cff5a99f5f8765452f9c09d5c93e6a1a2cd0f
         }
         runtime := time.Since(start)
         if (path == nil){
@@ -163,41 +154,7 @@ func main() {
 }
 
 
-<<<<<<< HEAD
-func ignoreLink(link string) bool{
-    ignoreList := []string{
-        "/wiki/File:" ,
-        "/wiki/Help:" ,
-        "/wiki/Special:" ,
-        "/wiki/Template:" ,
-        "/wiki/Template_Talk:" ,
-        "/wiki/Template_talk:" ,
-        "/wiki/Wikipedia:" ,
-        "/wiki/Category:",
-        "/wiki/Portal:" ,
-        "/wiki/User:" ,
-        "/wiki/User_Talk:" ,
-        "/wiki/Talk:",
-    }
-
-    if strings.ContainsAny(link,"%"){
-        return true;
-    }
-    if strings.ContainsAny(link,"#"){
-        return true;
-    }
-    for _, prefix := range ignoreList {
-		if strings.HasPrefix(link, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
-
-=======
 //Write links into file named filename. Used as debug
->>>>>>> 7a1cff5a99f5f8765452f9c09d5c93e6a1a2cd0f
 func writeFile(filename string, links []string) {
     file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
     if err != nil {

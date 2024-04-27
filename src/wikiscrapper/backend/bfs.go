@@ -41,6 +41,11 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 	worker := func(workerID int, httpClient *http.Client) {
 		defer wg.Done()
 		for {
+			select{
+			default:
+			case <- stopchan:
+				return
+			}
 			currentURL, priority, depth := urlToFind.Dequeue()
 			
 			// If urlToFind cannot be Dequeued
@@ -64,13 +69,23 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 
 			mutex.Lock()
 			links, isFound := getListofLinksMult(targetURL, currentURL, webFind, httpClient)
+			mutex.Unlock()
+
+			mutex.Lock()
 			if isFound {
-				(*counter) += len(links)
-				newPath := append(path, targetURL)
-				result = newPath
-				mutex.Unlock()
-				close(stopchan)
-				return
+				select{
+				default:
+					newPath := append(path, targetURL)
+					result = newPath
+					mutex.Unlock()
+					Checker()
+					close(stopchan)
+					return
+				case <- stopchan:
+					mutex.Unlock()
+					return
+				}
+				
 			}
 
 			mutex.Unlock()
@@ -84,11 +99,6 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 					urlToFind.Enqueue(link, depth + 1)
 				}
 				mutex.Unlock()
-			}
-			select{
-				default:
-				case <- stopchan:
-					return
 			}
 		}
 	}

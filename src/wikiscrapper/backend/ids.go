@@ -27,9 +27,11 @@ func IDS(startURL, targetURL string, depthLimit int, counter *int) []string {
 
 		// Start Timer
 		start := time.Now()
-
-		path = DLS(startURL, targetURL, depth,&visited, &mutex, counter)
+		var wg sync.WaitGroup
+		path = DLS(startURL, targetURL, depth,&visited, &mutex, counter, &wg)
 		fmt.Println("DLS Time", depth, ":", time.Since(start))
+		wg.Wait();
+		
 		fmt.Println(path)
 		if path != nil {
 			return path
@@ -42,7 +44,7 @@ func IDS(startURL, targetURL string, depthLimit int, counter *int) []string {
 }
 
 // Performing Depth limited search concurrently
-func DLS(currentURL, targetURL string, depthLimit int, visited *SafeMap, mutex *sync.Mutex, counter *int) []string {
+func DLS(currentURL, targetURL string, depthLimit int, visited *SafeMap, mutex *sync.Mutex, counter *int, wg *sync.WaitGroup) []string {
 
 	if visited.Get(currentURL) {
 		fmt.Println("flag visited")
@@ -68,15 +70,12 @@ func DLS(currentURL, targetURL string, depthLimit int, visited *SafeMap, mutex *
 	} else if !found && depthLimit == 2 {
 		return nil
 	}
-
-	var wg sync.WaitGroup
-
 	for _, link := range links {
 
 		wg.Add(1)
 		worker := func(link string) []string {
 			defer wg.Done()
-			subPath := DLS(link, targetURL, depthLimit-1, visited, mutex, counter)
+			subPath := DLS(link, targetURL, depthLimit-1, visited, mutex, counter, wg)
 			if subPath != nil {
 				return append([]string{currentURL}, subPath...)
 			}
@@ -88,7 +87,6 @@ func DLS(currentURL, targetURL string, depthLimit int, visited *SafeMap, mutex *
 			return worker
 		}
 	}
-	wg.Wait()
 
 	return nil
 }

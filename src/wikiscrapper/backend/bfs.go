@@ -11,7 +11,7 @@ import (
 func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 
 	// Caching Webs to find
-	webFind := make(map[string]bool)
+	webFind := *NewSafeMap()
 
 	// Prioqueue to determine the node to execute first
 	var urlToFind Prioqueue
@@ -35,6 +35,7 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 	stopchan := make(chan struct{})
 
 	pathQueue[startURL] = []string{startURL}
+	webFind.Set(startURL, true); //Caching the first element into the map
 
 	// Goroutine function
 	worker := func(workerID int, httpClient *http.Client) {
@@ -63,10 +64,9 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 			}
 			mutex.Lock()
 			(*counter)++
-			webFind[currentURL] = true
 			mutex.Unlock()
 
-			links, isFound := getListofLinksMult(targetURL, currentURL,httpClient)
+			links, isFound := HttpLinksProcessor(targetURL, currentURL,httpClient)
 
 
 			mutex.Lock()
@@ -76,7 +76,6 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 					newPath := append(path, targetURL)
 					result = newPath
 					mutex.Unlock()
-					Checker()
 					close(stopchan)
 					return
 				case <- stopchan:
@@ -88,15 +87,18 @@ func BFSWithPrioqueue(startURL, targetURL string, counter *int) []string {
 
 			mutex.Unlock()
 			for _, link := range links {
-				mutex.Lock()
-				if !webFind[link] {
+				
+				if !webFind.Get(link) {
 					newPath := append([]string{}, path...)
 					newPath = append(newPath, link)
+					mutex.Lock()
 					pathQueue[link] = newPath
-					webFind[link] = true
+					mutex.Unlock()
+
+					webFind.Set(link,true)
 					urlToFind.Enqueue(link, depth + 1)
 				}
-				mutex.Unlock()
+				
 			}
 		}
 	}

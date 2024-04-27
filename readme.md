@@ -1,6 +1,5 @@
 <h1 align="center">WIKI SCRAPER</h1>
 
-
 ## Project Overview
 This project is aimed at fulfilling the requirements for Small Task 2 of Algorithm Strategy, which involves implementing the Brute Force and Divide And Conquer algorithms in creating Bezier Curves. The implementation of Bezier Curves also includes the creation of a GUI that can display visual results of the executed algorithms.
 
@@ -19,9 +18,19 @@ Algoritma IDS yang kami implementasikan akan melakukan iterasi sebanyak depth_li
     ```
     https://nodejs.org/en/download
     ```
-2. Download Golang: 
+2. Download Golang: <br>
+    Windows <br>
     ```
     https://go.dev/doc/install
+    ```
+    Linux <br>
+    1. Install manual
+    ```
+    https://go.dev/doc/install
+    ```
+    2. Install from terminal
+    ```
+    sudo apt install golang-go
     ```
 3. Clone the Repo :
     ```
@@ -39,14 +48,14 @@ Algoritma IDS yang kami implementasikan akan melakukan iterasi sebanyak depth_li
     ```
     cd backend
     ```
-7. Install Backend dependencies
+7. Run go mod tidy
     ```
     go mod tidy
     ```
-8. If Backend dependencies are not installed 
+8. Install neeeded dependencies
     ```
     go get github.com/PuerkitoBio/goquery
-    go get github.com/gocolly/colly/v2
+    ```
 
 ### Running
 
@@ -61,16 +70,46 @@ Algoritma IDS yang kami implementasikan akan melakukan iterasi sebanyak depth_li
     ```
 
     Linux : 
-    ```
-    Backend
-    cd wikiscrapper/backend
-    go run main.go prioqueue.go bfs.go links.go ids.go safemap.go
+    1. Manual Launch
+        1. Create 2 terminal instances
+        2. Then run following command
+            ```
+            Backend
+            cd wikiscrapper/backend
+            go run main.go prioqueue.go bfs.go links.go ids.go safemap.go
 
-    Frontend
-    cd wikiscrapper
-    npm run dev
-    ```
+            Frontend
+            cd wikiscrapper
+            npm run dev
+            ```
 
+    2.  Using Shell 
+        - Linux
+        1. Create the shell executable 
+            ```
+            chmod +x run.sh
+            ```
+        2. Run the file
+            ```
+            ./run.sh
+            ```
+        - WSL
+        1. Install dos2unix
+            ```
+            sudo apt install dos2unix
+            ``` 
+        2. Run the following command
+            ```
+            dos2unix run.sh
+            ```
+        3. Create the shell executable
+            ```
+            chmod +x run.sh
+            ```
+        4. Run the shell 
+            ```
+            ./run.sh
+            ```
 The project is properly setup
 
 ## Authors

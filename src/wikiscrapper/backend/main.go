@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -32,7 +31,7 @@ type Response struct {
 
 //Global Variable
 var UrlData = make(chan Data, 1) //Global variable for storing post data
-var OutputData = make(chan Response, 1) //Global variable for storing an algorithmn response
+var OutputData = make(chan Response, 1) //Global variable for storing the output response
 
 // API Post Request Handler
 func postDataHandler(w http.ResponseWriter, r *http.Request){
@@ -48,6 +47,8 @@ func postDataHandler(w http.ResponseWriter, r *http.Request){
 		http.Error(w,err.Error(),http.StatusBadRequest)
 		return
 	}
+
+    //Signal data untuk diprocess di ProcessData method
     UrlData <- data
     fmt.Println("Data From: " + data.FROM)
     fmt.Println("Data To: " + data.TO)
@@ -88,9 +89,6 @@ func processData(){
         url := data.FROM
         target := data.TO
     
-        // Process data...
-        clearFile("links.txt")
-        clearFile("output.txt")
 
         start := time.Now()
         var path []string
@@ -110,8 +108,7 @@ func processData(){
         }else{
             fmt.Println(path)
         }
-        writeFile("output.txt",path)
-        
+
         // Construct response
         response := Response{
             Checkcount: fmt.Sprint(counter),
@@ -135,8 +132,6 @@ func processData(){
                 fmt.Println("flag empty list")
             }
         }
-        clearFile("links.txt")
-        clearFile("output.txt")
         OutputData <- response
     }
 }
@@ -152,46 +147,4 @@ func main() {
         log.Fatal(err)
     }
 }
-
-
-//Write links into file named filename. Used as debug
-func writeFile(filename string, links []string) {
-    file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-    if err != nil {
-        log.Fatal("Error opening file:", err)
-    }
-    defer file.Close()
-
-    for _, link := range links {
-        // Write each link to the file
-        _, err := file.WriteString(link + "\n")
-        if err != nil {
-            log.Fatal("Error writing to file:", err)
-        }
-    }
-
-    //fmt.Println("Links appended to", filename)
-}
-
-//Used to clear all the data inside the filename
-func clearFile(filename string) {
-    // Open the file with write-only mode and truncate it (clear content)
-    file, err := os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC, 0644)
-    if err != nil {
-        log.Fatal("Error clearing file:", err)
-    }
-    defer file.Close()
-
-    // Truncate the file to clear its content
-    err = file.Truncate(0)
-    if err != nil {
-        log.Fatal("Error truncating file:", err)
-    }
-}
-
-// Used as Checker
-func Checker(){
-    fmt.Println("is this called??")
-}
-  
 

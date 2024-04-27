@@ -1,23 +1,32 @@
 package main
 
 import (
+	"fmt"
+	"log"
+	"os"
+	"strconv"
 	"sync"
 	"unicode/utf8"
 )
 
+// Target Url Data
 type Target struct{
 	name string
 }
 
+// Item data for comparison
 type Item struct {
     key      string
     priority int
+    depth int
 }
 
+// Queue
 type PriorityQueue struct {
-    items []*Item
+    items []Item
 }
 
+// Priority Queue
 type Prioqueue struct {
     treshold int // Used to preserve some Enqueue before declining priorities
     target Target
@@ -25,25 +34,30 @@ type Prioqueue struct {
     sync.Mutex
 }
 
+
+// Length of the Priority Queue
 func (pq *Prioqueue) Length() int {
     return len(pq.pq.items)
 }
 
+// Defined the target url and insert into the prioqueue
 func (pq *Prioqueue) ConstructTarget(target string) {
     var t Target
     t.name = target
     pq.target = t
 }
 
+// Initiate Prioqueue, set target as the url target
 func (pq *Prioqueue) Init(target string) {
     pq.Lock()
     defer pq.Unlock()
-    pq.pq.items = make([]*Item, 0)
+    pq.pq.items = make([]Item, 0)
     pq.ConstructTarget(target)
     pq.treshold = 10 // Limit of Enqueue without priorities
+
 }
 
-
+// Compare Two strings using Levenshtein distance algorithm
 func StringCompare(s1, s2 string) int {
     minlengthTreshold := 32
     if len(s1) == 0 {
@@ -86,6 +100,7 @@ func StringCompare(s1, s2 string) int {
     return int(x[lS1])
 }
 
+// Return the lowest of two integers
 func min(a, b int) int {
     if a < b {
         return a
@@ -93,78 +108,128 @@ func min(a, b int) int {
     return b
 }
 
+// Determine the Priority of a key
+// The Lower the distance by StringCompare, the higher the priority
 func (pq *Prioqueue) priorityDecision(key string) int {
     return StringCompare(key, pq.target.name)
 }
 
-func (pq *Prioqueue) Enqueue(key string) {
+
+// Keeping the order of the queue
+// Prioritize by depth, then prioritize by priority
+func(pq *Prioqueue) ReSortList(item Item){
+    id := 0
+    for i:= 0; i < pq.Length();i++{
+        temp := pq.pq.items[i]
+        if(item.depth > temp.depth){
+            id = i + 1
+            continue
+        }
+
+        if(item.depth == temp.depth){
+            if item.priority < temp.priority {
+                id = i
+                break
+            } else {
+                id = i + 1 // Move to the next position
+                continue
+            }
+        }else if(item.depth < temp.depth){
+            id = i
+            break
+        }
+    }
+
+    if(pq.Length() > 0){
+        pq.pq.items = append(pq.pq.items[:id], append([]Item{item}, pq.pq.items[id:]...)...)
+    }else{
+        pq.pq.items = append([]Item{}, item)
+    }
+}
+
+// Write Prioqueue data onto a file
+func writeFilePrioque(filename string, data []Item, parent string) {
+    file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+    if err != nil {
+        log.Fatal("Error opening file:", err)
+    }
+    defer file.Close()
+
+    for _, link := range data {
+        // Write each link to the file
+        _, err := file.WriteString("Link: " +link.key + " Depth : "+ strconv.Itoa(link.depth) + " Priority: "+ strconv.Itoa(link.priority)+ " Parent : " + parent +  "\n")
+        if err != nil {
+            log.Fatal("Error writing to file:", err)
+        }
+    }
+
+    //fmt.Println("Links appended to", filename)
+}
+
+// Enqueue a new key and its depth to the queue
+func (pq *Prioqueue) Enqueue(key string, depth int) {
     pq.Lock()
     defer pq.Unlock()
     if pq.pq.items == nil {
-        pq.pq.items = make([]*Item, 0)
+        pq.pq.items = make([]Item, 0)
     }
 
     removeWiki := key[5:]
     priority := pq.priorityDecision(removeWiki)
-    item := &Item{key, priority}
-    if(pq.treshold > 0){
-        pq.treshold--
-        pq.pq.items = append(pq.pq.items, item)
-        pq.bubbleUp(len(pq.pq.items) - 1)
-    }else{
-        if(item.priority < 15){
-            pq.pq.items = append(pq.pq.items, item)
-            pq.bubbleUp(len(pq.pq.items) - 1)
-        }
-    }
-    
-}
 
-func (pq *Prioqueue) bubbleUp(index int) {
-    for index > 0 {
-        parentIndex := (index - 1) / 2
-        if pq.pq.items[index].priority < pq.pq.items[parentIndex].priority {
-            pq.pq.items[index], pq.pq.items[parentIndex] = pq.pq.items[parentIndex], pq.pq.items[index]
-            index = parentIndex
-        } else {
-            break
+    if(priority == 99){
+        return
+    }
+    item := Item{key, priority, depth}
+
+    //Boundary set
+    if(pq.Length() > 2000 ){
+        if(priority < 16){
+            pq.ReSortList(item);
+        }else{
+            return;
         }
+    }else {
+        pq.ReSortList(item);
     }
 }
 
-func (pq *Prioqueue) Dequeue() (string,int) {
+//Dequeue The Prio List 
+//Return The Link, Priority, and Depth of the most prioritized Item
+func (pq *Prioqueue) Dequeue() (string,int,int) {
     pq.Lock()
     defer pq.Unlock()
     if len(pq.pq.items) == 0 {
-        return "",0
+        return "",99,99
     }
     root := pq.pq.items[0]
-    lastIndex := len(pq.pq.items) - 1
-    pq.pq.items[0] = pq.pq.items[lastIndex]
-    pq.pq.items = pq.pq.items[:lastIndex]
-    pq.heapifyDown(0)
-    return root.key,root.priority
+    pq.pq.items = pq.pq.items[1:]
+    return root.key,root.priority,root.depth
 }
 
-func (pq *Prioqueue) heapifyDown(index int) {
-    lastIndex := len(pq.pq.items) - 1
-    for {
-        leftChildIndex := 2*index + 1
-        rightChildIndex := 2*index + 2
-        swapIndex := index
+/*
+Display Data of Prioqueue
+Status : Full (Display Full Data)
+Status : ListOnly (Display Only The List)
+Status: Length (Dsipaly Only the Length)
+*/
+func (pq *Prioqueue) Log(status string){
+    
+    if(status == "full"){
+        fmt.Println("=====PRIOQUEUE DATA====")
+        fmt.Println("Data: ")
+        fmt.Println(pq.pq.items)
+        fmt.Println("Length: ")
+        fmt.Println(len(pq.pq.items))
+        fmt.Println()
 
-        if leftChildIndex <= lastIndex && pq.pq.items[leftChildIndex].priority < pq.pq.items[swapIndex].priority {
-            swapIndex = leftChildIndex
-        }
-        if rightChildIndex <= lastIndex && pq.pq.items[rightChildIndex].priority < pq.pq.items[swapIndex].priority {
-            swapIndex = rightChildIndex
-        }
-
-        if swapIndex != index {
-            pq.pq.items[index], pq.pq.items[swapIndex] = pq.pq.items[swapIndex], pq.pq.items[index]
-            index = swapIndex
-        } else {
-            break
-        }
+    }else if(status == "ListOnly"){
+        fmt.Println("=====PRIOQUEUE DATA====")
+        fmt.Println("Data: ")
+        fmt.Println(pq.pq.items)
+    }else{
+        fmt.Println("=====PRIOQUEUE DATA====")
+        fmt.Println("Length: ")
+        fmt.Println(len(pq.pq.items))
     }
 }

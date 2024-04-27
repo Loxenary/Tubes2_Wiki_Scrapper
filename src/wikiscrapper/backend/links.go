@@ -77,6 +77,36 @@ func extractLinks(doc *goquery.Document, visited SafeMap, targeturl string, link
 	return targetFound
 }
 
+func ignoreLink(link string) bool{
+    ignoreList := []string{
+        "/wiki/File:" ,
+        "/wiki/Help:" ,
+        "/wiki/Special:" ,
+        "/wiki/Template:" ,
+        "/wiki/Template_Talk:" ,
+        "/wiki/Template_talk:" ,
+        "/wiki/Wikipedia:" ,
+        "/wiki/Category:",
+        "/wiki/Portal:" ,
+        "/wiki/User:" ,
+        "/wiki/User_Talk:" ,
+        "/wiki/Talk:",
+    }
+
+    if(strings.Contains(link,"%")){
+        return true
+    }
+
+    for _, prefix := range ignoreList {
+		if strings.HasPrefix(link, prefix){
+			return true
+		}
+	}
+	return false
+}
+
+
+
 func getListofLinks1(targeturl, url string, visited SafeMap) ([]string, bool) {
 	url = "https://en.wikipedia.org" + url
 	response, err := http.Get(url)
@@ -131,7 +161,8 @@ func getListofLinks1(targeturl, url string, visited SafeMap) ([]string, bool) {
 		}
 	}
 
-	//writeFile("links.txt", allLinks)
+
+	writeFile("links.txt", allLinks)
 	return allLinks, targetFound
 }
 
@@ -174,3 +205,76 @@ func getListofLinks2(targeturl, url string) ([]string, bool) {
     return links, targetFound
 }
 
+func getListofLinksMult(targeturl, url string, visited map[string]bool, httpClient *http.Client) ([]string, bool) {
+    url = "https://en.wikipedia.org" + url
+
+    response, err := httpClient.Get(url)
+    if err != nil {
+        log.Fatal("Error fetching URL:", err)
+    }
+    defer response.Body.Close()
+
+    // Parse HTML
+    doc, err := goquery.NewDocumentFromReader(response.Body)
+    if err != nil {
+        log.Fatal("Error parsing HTML:", err)
+    }
+
+    // Extract links
+    var links []string
+    targetFound := false // Flag to indicate if the target URL has been found
+
+    doc.Find("#mw-content-text").Each(func(i int, content *goquery.Selection) {
+        // Extract links within the main content area
+        content.Find("a").Each(func(i int, s *goquery.Selection) {
+            // Get the link's href attribute
+            link, exists := s.Attr("href")
+            if exists && strings.HasPrefix(link, "/wiki/") && !ignoreLink(link) && !isin(link, links) && !visited[link] && !strings.ContainsAny(link, "#") {
+                // Append the link to the slice
+                links = append(links, link)
+                if link == targeturl {
+                    // If the link matches the target URL, set the flag
+                    targetFound = true
+                    //return
+                }
+            }
+        })
+    })
+
+    //writeFile("links.txt", links)
+    return links, targetFound
+}
+func isin(link string, array []string) bool {
+    // Calculate the size of each part
+    partSize := len(array) / 4
+
+    // Channel to receive results
+    found := make(chan bool, 4)
+
+    // Process each part of the array concurrently
+    for i := 0; i < 4; i++ {
+        start := i * partSize
+        end := (i + 1) * partSize
+        if i == 3 {
+            end = len(array) // Ensure the last part includes the remaining elements
+        }
+        go func(arr []string) {
+            for _, item := range arr {
+                if item == link {
+                    found <- true
+                    return
+                }
+            }
+            found <- false
+        }(array[start:end])
+    }
+
+    // Collect results from the channels
+    for i := 0; i < 4; i++ {
+        if <-found {
+            return true
+        }
+    }
+
+    return false
+}
